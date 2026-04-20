@@ -6,6 +6,7 @@ import { defineUnlistedScript } from '#imports'
 import App from '@/App.vue'
 import { initAiReply } from '@/composables/useAiReply'
 import { getRootVue } from '@/composables/useVue'
+import { initGeekChatBridge } from '@/composables/useWebSocket/chatCore'
 import { loader } from '@/utils'
 import { logger } from '@/utils/logger'
 
@@ -36,6 +37,8 @@ async function main(router: any) {
 }
 
 async function start() {
+  initGeekChatBridge()
+
   //   document.documentElement.classList.toggle(
   //     "dark",
   //     GM_getValue("theme-dark", false)
