@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 
 import { defineUnlistedScript } from '#imports'
 import App from '@/App.vue'
+import { initAiReply } from '@/composables/useAiReply'
 import { getRootVue } from '@/composables/useVue'
 import { loader } from '@/utils'
 import { logger } from '@/utils/logger'
@@ -72,4 +73,5 @@ export default defineUnlistedScript(() => {
   start().catch((e) => {
     logger.error(e)
   })
+  initAiReply()
 })

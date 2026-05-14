@@ -6,14 +6,20 @@ import {
   ElDialog,
   ElForm,
   ElFormItem,
+  ElIcon,
   ElInput,
   ElMessage,
   ElScrollbar,
+  ElSelectV2,
+  ElText,
+  ElTooltip,
 } from 'element-plus'
 import { computed, ref } from 'vue'
 
+import Info from '@/components/icon/Info.vue'
 import type { modelData } from '@/composables/useModel'
 import { llms, useModel } from '@/composables/useModel'
+import { fetchModels } from '@/composables/useModel/openai'
 import type { llm } from '@/composables/useModel/type'
 import deepmerge, { jsonClone } from '@/utils/deepmerge'
 import { logger } from '@/utils/logger'
@@ -51,6 +57,44 @@ const formLLM = computed(() =>
     0,
   ),
 )
+
+// 动态模型列表（通过 /models 接口获取）
+const fetchedModelOptions = ref<Array<{ label: string; value: string }> | null>(null)
+const fetchingModels = ref(false)
+
+// 始终确保当前选中的 model 值在列表里
+const dynamicModelOptions = computed(() => {
+  const base: Array<{ label: string; value: string }> =
+    fetchedModelOptions.value ??
+    ((llms[formLLM.value].model as any).config?.options ?? [])
+  const current: string = llmFormData.model
+  if (current && !base.some((o) => o.value === current)) {
+    return [{ label: current, value: current }, ...base]
+  }
+  return base
+})
+
+async function fetchModelList() {
+  const url: string = llmFormData.url
+  const apiKey: string = llmFormData.api_key
+  if (!url || !apiKey) {
+    ElMessage.warning('请先填写 URL 和 API Key')
+    return
+  }
+  fetchingModels.value = true
+  try {
+    const ids = await fetchModels(url, apiKey)
+    fetchedModelOptions.value = ids.map((id) => ({ label: id, value: id }))
+    if (ids.length > 0 && !ids.includes(llmFormData.model)) {
+      llmFormData.model = ids[0]
+    }
+    ElMessage.success(`获取到 ${ids.length} 个模型`)
+  } catch (err: any) {
+    ElMessage.error(`获取模型失败: ${err.message}`)
+  } finally {
+    fetchingModels.value = false
+  }
+}
 
 type r = Record<string, any>
 
@@ -215,7 +259,42 @@ function create() {
         </template>
       </ElSegmented> -->
       <ElForm label-width="auto" size="large" label-position="left">
-        <LLMForm :key="formLLM" v-model="llmFormData" :data="llms[formLLM]" />
+        <LLMForm :key="formLLM" v-model="llmFormData" :data="llms[formLLM]" :exclude="['model']" />
+        <!-- model 字段单独渲染，支持动态获取模型列表 -->
+        <ElFormItem required>
+          <template #label>
+            <ElText size="large">model</ElText>
+            <ElTooltip
+              content="<span>选择要使用的模型，可手动输入或点击右侧按钮从 API 获取</span>"
+              raw-content
+            >
+              <ElIcon style="margin-left: 8px">
+                <Info />
+              </ElIcon>
+            </ElTooltip>
+          </template>
+          <div style="display: flex; gap: 8px; width: 100%">
+            <ElSelectV2
+              v-model="llmFormData.model"
+              :options="dynamicModelOptions"
+              allow-create
+              filterable
+              default-first-option
+              clearable
+              :teleported="false"
+              placeholder="选择或输入模型名"
+              style="flex: 1"
+            />
+            <ElButton
+              :loading="fetchingModels"
+              type="primary"
+              plain
+              @click="fetchModelList"
+            >
+              获取模型
+            </ElButton>
+          </div>
+        </ElFormItem>
       </ElForm>
     </ElScrollbar>
     <template #footer>

@@ -46,7 +46,7 @@ const model = useModel()
 const show = defineModel<boolean>({ required: true })
 const currentModel = ref(conf.formData[props.data].model)
 const singleMode = ref(
-  conf.formData[props.data].vip || signedKey.signedKey != null
+  conf.formData[props.data].vip
     ? ('vip' as const)
     : !Array.isArray(conf.formData[props.data].prompt),
 )

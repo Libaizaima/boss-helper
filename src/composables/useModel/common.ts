@@ -15,7 +15,7 @@ export const other: llmInfo<other>['other'] = {
       desc: 'GPT请求的超时时间,超时后不会进行重试将跳过岗位,默认18000s / 30分钟',
     },
     background: {
-      value: false,
+      value: true,
       type: 'switch',
       desc: '是否在后台请求, 当遇到跨域错误时, 可以开启将在扩展中请求.',
     },
