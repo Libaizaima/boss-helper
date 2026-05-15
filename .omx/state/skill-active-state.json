@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "active": true,
+  "skill": "build-fix",
+  "keyword": "type errors",
+  "phase": "reviewing",
+  "activated_at": "2026-05-15T08:32:21.873Z",
+  "updated_at": "2026-05-15T09:24:55.528Z",
+  "source": "keyword-detector",
+  "input_lock": null
+}

@@ -231,6 +231,31 @@ onMounted(() => {
       </ElStatistic>
     </ElCol>
   </ElRow>
+  <!-- 打招呼 ACK 状态角标（仅当有未确认或失败记录时显示） -->
+  <ElRow
+    v-if="(statistics.todayData.greetUnverified ?? 0) > 0 || (statistics.todayData.greetRejected ?? 0) > 0"
+    :gutter="20"
+    style="margin-top: 8px"
+  >
+    <ElCol v-if="(statistics.todayData.greetUnverified ?? 0) > 0" :span="8">
+      <ElStatistic
+        data-help="打招呼消息在 ACK 超时窗口内未收到服务端确认（可能已发出但无法验证）。可在配置中调整 ACK 超时时间。"
+        :value="statistics.todayData.greetUnverified ?? 0"
+        title="招呼未确认："
+        suffix="次"
+        class="greet-stat-warn"
+      />
+    </ElCol>
+    <ElCol v-if="(statistics.todayData.greetRejected ?? 0) > 0" :span="8">
+      <ElStatistic
+        data-help="打招呼消息被服务端明确拒绝，或渠道异常导致发送失败。请检查日志面板中的「打招呼出错」条目。"
+        :value="statistics.todayData.greetRejected ?? 0"
+        title="招呼失败："
+        suffix="次"
+        class="greet-stat-danger"
+      />
+    </ElCol>
+  </ElRow>
   <div style="display: flex">
     <ElButtonGroup style="margin: 10px 30px 0 0">
       <ElButton
@@ -266,4 +291,11 @@ onMounted(() => {
   </div>
 </template>
 
-<style lang="scss"></style>
+<style lang="scss">
+.greet-stat-warn .ehp-statistic__number {
+  color: var(--el-color-warning);
+}
+.greet-stat-danger .ehp-statistic__number {
+  color: var(--el-color-danger);
+}
+</style>

@@ -139,7 +139,10 @@ export const useDeliver = defineStore('zhipin/deliver', () => {
         }
 
         statistics.todayData.total++
-        await delay(conf.formData.delay.deliveryInterval)
+        // 反风控：在配置间隔基础上 ±50% 随机化，避免规律性
+        const baseInterval = conf.formData.delay.deliveryInterval
+        const randomInterval = baseInterval * (0.5 + Math.random())
+        await delay(randomInterval)
       }
     }
   }

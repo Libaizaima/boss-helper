@@ -26,6 +26,7 @@ import { logger } from '@/utils/logger'
 import { useDeliver } from '../hooks/useDeliver'
 import { usePager } from '../hooks/usePager'
 import About from './About.vue'
+import Ai from './Ai.vue'
 import Card from './Card.vue'
 import Config from './Config.vue'
 import Logs from './Logs.vue'
@@ -225,8 +226,9 @@ function openStore() {
       <ElTabPane label="配置" Alertdata-help="好好看，好好学">
         <Config />
       </ElTabPane>
-      <ElTabPane v-if="signedKey.signedKey" label="AI" data-help="AI时代，脚本怎么能落伍!">
-        <Service />
+      <ElTabPane v-if="conf.config_level.advanced" label="AI" data-help="AI时代，脚本怎么能落伍!">
+        <Service v-if="signedKey.signedKey" />
+        <Ai v-else />
       </ElTabPane>
       <ElTabPane label="日志" data-help="反正你也不看">
         <Logs />

@@ -47,10 +47,18 @@ export interface TechwolfMessage {
   cmid?: string // 11
 }
 
+export interface TechwolfMessageSync {
+  // @int64
+  clientMid: string // 1
+  // @int64
+  serverMid: string // 2
+}
+
 export interface TechwolfChatProtocol {
   //  @int32
   type: number // 1
   messages: TechwolfMessage[] // 3
+  messageSync?: TechwolfMessageSync[] // 7
 }
 
 const Root = protobuf.Root
@@ -101,7 +109,13 @@ const root = new Root()
   .add(
     new Type('TechwolfChatProtocol')
       .add(new Field('type', 1, 'int32'))
-      .add(new Field('messages', 3, 'TechwolfMessage', 'repeated')),
+      .add(new Field('messages', 3, 'TechwolfMessage', 'repeated'))
+      .add(new Field('messageSync', 7, 'TechwolfMessageSync', 'repeated')),
+  )
+  .add(
+    new Type('TechwolfMessageSync')
+      .add(new Field('clientMid', 1, 'int64'))
+      .add(new Field('serverMid', 2, 'int64')),
   )
 
 export const AwesomeMessage = root.lookupType('TechwolfChatProtocol')

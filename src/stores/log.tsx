@@ -3,6 +3,7 @@ import { ElButton, ElCheckbox, ElCheckboxGroup, ElIcon, ElPopover, ElTag } from 
 import type { HeaderCellRendererParams } from 'element-plus/es/components/table-v2/src/types.mjs'
 import { computed, reactive, ref } from 'vue'
 
+import { counter } from '@/message'
 import type {
   CompanyNameError,
   CompanySizeError,
@@ -51,11 +52,140 @@ type logState = 'info' | 'success' | 'warning' | 'danger'
 
 interface log {
   job?: MyJobListData
-  title: string // 标题
-  state: logState // 信息,成功,过滤,出错
-  state_name: string // 标签文本
-  message?: string // 显示消息
+  title: string
+  state: logState
+  state_name: string
+  message?: string
   data?: logData
+  time?: string
+  debug?: string
+}
+
+/** 可序列化的持久化日志结构（去掉不可序列化的字段） */
+interface PersistedLog {
+  title: string
+  state: logState
+  state_name: string
+  message?: string
+  time?: string
+  debug?: string
+  job?: {
+    jobName?: string
+    brandName?: string
+    salaryDesc?: string
+    encryptJobId?: string
+  }
+  data?: {
+    err?: string
+    message?: string
+    aiFilteringQ?: string
+    aiFilteringAtext?: string
+    aiFilteringR?: string | null
+    aiGreetingQ?: string
+    aiGreetingA?: string
+    aiGreetingR?: string | null
+  }
+}
+
+// storage key 格式: local:log:2026-05-15
+const LOG_KEY_PREFIX = 'local:log:'
+const MAX_DAYS = 7
+const MAX_PER_DAY = 500
+
+function todayKey() {
+  return LOG_KEY_PREFIX + new Date().toISOString().slice(0, 10)
+}
+
+function toPersistedLog(item: log): PersistedLog {
+  return {
+    title: item.title,
+    state: item.state,
+    state_name: item.state_name,
+    message: item.message,
+    time: item.time,
+    debug: item.debug,
+    job: item.job
+      ? {
+          jobName: item.job.jobName,
+          brandName: item.job.brandName,
+          salaryDesc: item.job.salaryDesc,
+          encryptJobId: item.job.encryptJobId,
+        }
+      : undefined,
+    data: item.data
+      ? {
+          err: item.data.err,
+          message: item.data.message,
+          aiFilteringQ: item.data.aiFilteringQ,
+          aiFilteringAtext: item.data.aiFilteringAtext,
+          aiFilteringR: item.data.aiFilteringR,
+          aiGreetingQ: item.data.aiGreetingQ,
+          aiGreetingA: item.data.aiGreetingA,
+          aiGreetingR: item.data.aiGreetingR,
+        }
+      : undefined,
+  }
+}
+
+/** 异步追加一条日志到 storage */
+async function persistLog(item: log) {
+  try {
+    const key = todayKey()
+    const existing = await counter.storageGet<PersistedLog[]>(key, [])
+    existing.push(toPersistedLog(item))
+    // 每天最多保留 MAX_PER_DAY 条，超出时删最旧的
+    if (existing.length > MAX_PER_DAY) {
+      existing.splice(0, existing.length - MAX_PER_DAY)
+    }
+    await counter.storageSet(key, existing)
+  } catch {
+    // storage 写入失败不影响主流程
+  }
+}
+
+/** 清理超过 MAX_DAYS 天的旧日志 */
+async function cleanOldLogs() {
+  try {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - MAX_DAYS)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    // 无法直接枚举 storage keys，用已知日期范围删除
+    for (let i = MAX_DAYS + 1; i <= MAX_DAYS + 30; i++) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const key = LOG_KEY_PREFIX + d.toISOString().slice(0, 10)
+      try {
+        await counter.storageSet(key, null as any)
+      } catch {}
+    }
+    void cutoffStr // suppress unused warning
+  } catch {}
+}
+
+/** 加载指定日期的持久化日志（转回内存格式） */
+function fromPersistedLog(p: PersistedLog): log {
+  return {
+    title: p.title,
+    state: p.state,
+    state_name: p.state_name,
+    message: p.message,
+    time: p.time,
+    debug: p.debug,
+    job: p.job as any,
+    data: p.data
+      ? ({
+          listData: { jobName: p.job?.jobName, brandName: p.job?.brandName } as any,
+          err: p.data.err,
+          message: p.data.message,
+          aiFilteringQ: p.data.aiFilteringQ,
+          aiFilteringAtext: p.data.aiFilteringAtext,
+          aiFilteringR: p.data.aiFilteringR,
+          aiGreetingQ: p.data.aiGreetingQ,
+          aiGreetingA: p.data.aiGreetingA,
+          aiGreetingR: p.data.aiGreetingR,
+        } as logData)
+      : undefined,
+  }
 }
 
 const dialogData = reactive<{ show: boolean; data?: log }>({ show: false })
@@ -180,41 +310,140 @@ const columns: Column<log>[] = [
 ]
 
 export function useLog() {
+  /** 初始化：从 storage 加载今天的日志 */
+  async function init() {
+    try {
+      const key = todayKey()
+      const saved = await counter.storageGet<PersistedLog[]>(key, [])
+      if (saved.length > 0 && data.value.length === 0) {
+        data.value = saved.map(fromPersistedLog)
+      }
+      // 异步清理旧日志
+      void cleanOldLogs()
+    } catch {}
+  }
+
   const add = (job: MyJobListData, err: logErr, logdata?: logData, msg?: string) => {
     const state = !err ? 'success' : err.state
     const message = msg ?? (err ? err.message : undefined)
-
-    data.value.push({
+    const item: log = {
       job,
       title: job.jobName,
       state,
       state_name: err?.name ?? '投递成功',
       message,
       data: logdata,
-    })
+      time: new Date().toLocaleString('zh-CN', { hour12: false }),
+      debug: err
+        ? `Error: ${err.name}\nMessage: ${err.message}\nStack: ${err.stack ?? '(无)'}`
+        : undefined,
+    }
+    data.value.push(item)
+    void persistLog(item)
   }
-  const info = (title: string, message: string) => {
-    data.value.push({
+
+  const info = (title: string, message: string, debug?: string) => {
+    const item: log = {
       title,
       state: 'info',
       state_name: '消息',
       message,
       data: undefined,
-    })
+      time: new Date().toLocaleString('zh-CN', { hour12: false }),
+      debug,
+    }
+    data.value.push(item)
+    void persistLog(item)
   }
+
+  const debug = (title: string, message: string, payload?: any) => {
+    let dbg: string | undefined
+    if (payload != null) {
+      try {
+        dbg = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)
+      } catch {
+        dbg = String(payload)
+      }
+    }
+    const item: log = {
+      title,
+      state: 'info',
+      state_name: '消息',
+      message,
+      data: undefined,
+      time: new Date().toLocaleString('zh-CN', { hour12: false }),
+      debug: dbg,
+    }
+    data.value.push(item)
+    void persistLog(item)
+  }
+
   const clear = () => {
     data.value = []
+    // 同时清除今天的 storage
+    void counter.storageSet(todayKey(), [])
+  }
+
+  /** 加载指定日期的历史日志（格式 2026-05-15） */
+  const loadDate = async (dateStr: string) => {
+    const key = LOG_KEY_PREFIX + dateStr
+    const saved = await counter.storageGet<PersistedLog[]>(key, [])
+    data.value = saved.map(fromPersistedLog)
+  }
+
+  /** 获取有日志记录的日期列表（最近 MAX_DAYS 天） */
+  const getAvailableDates = async (): Promise<string[]> => {
+    const dates: string[] = []
+    for (let i = 0; i < MAX_DAYS; i++) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateStr = d.toISOString().slice(0, 10)
+      const key = LOG_KEY_PREFIX + dateStr
+      const saved = await counter.storageGet<PersistedLog[]>(key, [])
+      if (saved.length > 0) {
+        dates.push(dateStr)
+      }
+    }
+    return dates
+  }
+
+  const exportText = () => {
+    return data.value
+      .map((item) => {
+        const lines: string[] = []
+        lines.push('===========')
+        if (item.time) lines.push(`[时间] ${item.time}`)
+        lines.push(`[状态] ${item.state_name}`)
+        lines.push(`[标题] ${item.title}`)
+        if (item.message) lines.push(`[信息] ${item.message}`)
+        if (item.job?.brandName) lines.push(`[公司] ${item.job.brandName}`)
+        if (item.job?.salaryDesc) lines.push(`[薪资] ${item.job.salaryDesc}`)
+        if (item.data?.aiGreetingQ) lines.push(`[AI招呼Prompt]\n${item.data.aiGreetingQ}`)
+        if (item.data?.aiGreetingA) lines.push(`[AI招呼回答]\n${item.data.aiGreetingA}`)
+        if (item.data?.aiFilteringQ) lines.push(`[AI筛选Prompt]\n${item.data.aiFilteringQ}`)
+        if (item.data?.aiFilteringAtext) lines.push(`[AI筛选回答]\n${item.data.aiFilteringAtext}`)
+        if (item.data?.err) lines.push(`[错误详情]\n${item.data.err}`)
+        if (item.debug) lines.push(`[调试信息]\n${item.debug}`)
+        return lines.join('\n')
+      })
+      .join('\n\n')
   }
 
   return {
     columns,
     data,
     filterData,
+    init,
     clear,
     add,
     info,
+    debug,
+    exportText,
+    loadDate,
+    getAvailableDates,
     dialogData,
   }
 }
 
 window.__q_log = data
+;(window as any).__q_useLog = useLog

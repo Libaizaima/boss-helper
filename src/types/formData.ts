@@ -15,6 +15,10 @@ export interface Statistics {
   activityFilter: number
   goldHunterFilter: number
   repeat: number
+  /** 打招呼未确认次数（ACK 超时 / 渠道不可验证 / cmid 冲突）。可选以兼容旧存档。 */
+  greetUnverified?: number
+  /** 打招呼明确失败次数（服务端拒绝 / 渠道异常 / 无渠道 / EventBus 失败）。可选以兼容旧存档。 */
+  greetRejected?: number
 }
 const ConfigLevels = ['beginner', 'intermediate', 'advanced', 'expert'] as const
 export type ConfigLevel = (typeof ConfigLevels)[number]
@@ -54,6 +58,11 @@ export interface FormData {
   record: { model?: string[]; enable: boolean }
   // animation?: "frame" | "card" | "together";
   delay: ConfDelay
+  /**
+   * ACK 等待超时（毫秒）。`Message.send` 会把该值 clamp 到 [1000, 15000]。
+   * 默认 5000。可选以兼容旧存档（缺省时 handles.ts 回落 5000）。
+   */
+  greetingAckTimeoutMs?: number
   version: string
   userId?: number | string
 }

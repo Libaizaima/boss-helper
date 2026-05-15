@@ -4,7 +4,7 @@ import { miTem } from 'mitem'
 import { useChat } from '@/composables/useChat'
 import { useModel } from '@/composables/useModel'
 import { useStatistics } from '@/composables/useStatistics'
-import { Message } from '@/composables/useWebSocket'
+import { Message, type SendResult } from '@/composables/useWebSocket'
 import { counter } from '@/message'
 import { useConf } from '@/stores/conf'
 import type { logData } from '@/stores/log'
@@ -37,6 +37,53 @@ import {
   sameCompanyKey,
   sameHrKey,
 } from './utils'
+
+/**
+ * Map a `Message.send` failure result to a Chinese GreetError message.
+ *
+ * Per design "Error Mapping" table — each `SendFailureReason` maps to a
+ * single user-facing string used as `GreetError.message`. The strings are
+ * intentionally short and locale-locked (zh-CN) to align with the rest of
+ * the pipeline error messaging in `deliverError.ts`.
+ */
+function mapSendFailureToMessage(r: Extract<SendResult, { ok: false }>): string {
+  switch (r.reason) {
+    case 'NO_CHANNEL':
+      return '打招呼失败：无可用消息发送渠道'
+    case 'CHANNEL_SYNC_THROW':
+      return '打招呼失败：渠道异常'
+    case 'TIMEOUT':
+      return '打招呼未确认：ACK 超时（默认 5s,可在配置中调整）'
+    case 'SERVER_REJECTED':
+      return `打招呼失败：服务端拒绝（code=${r.serverCode ?? ''},${(r.serverMessage ?? '').slice(0, 80)})`
+    case 'EVENTBUS_FAILED':
+      return '打招呼失败：EventBus 渠道返回失败'
+    case 'UNVERIFIED':
+      return '打招呼未确认：当前渠道无法验证服务端接收状态'
+    case 'CMID_COLLISION':
+      return '打招呼未确认：客户端消息 ID 冲突,请重试下次投递'
+    default:
+      return '打招呼未确认：未知原因'
+  }
+}
+
+function recordGreetingFailure(statistics: ReturnType<typeof useStatistics>, r: Extract<SendResult, { ok: false }>) {
+  switch (r.reason) {
+    case 'TIMEOUT':
+    case 'UNVERIFIED':
+    case 'CMID_COLLISION':
+      statistics.todayData.greetUnverified = (statistics.todayData.greetUnverified ?? 0) + 1
+      break
+    default:
+      statistics.todayData.greetRejected = (statistics.todayData.greetRejected ?? 0) + 1
+      break
+  }
+}
+
+function throwGreetingFailure(statistics: ReturnType<typeof useStatistics>, r: Extract<SendResult, { ok: false }>): never {
+  recordGreetingFailure(statistics, r)
+  throw new GreetError(mapSendFailureToMessage(r))
+}
 
 export function handles() {
   const { chatMessages } = useChat()
@@ -342,14 +389,16 @@ export function handles() {
       return
     }
     const curModel = model.modelData.find((v) => conf.formData.aiFiltering.model === v.key)
-    if (!curModel && !conf.formData.aiFiltering.vip) {
+    const useVip = conf.formData.aiFiltering.vip === true
+    if (!curModel && !useVip) {
       throw new AIFilteringError('没有找到AI筛选的模型')
     }
-    const gpt = model.getModel(
-      curModel,
-      conf.formData.aiFiltering.prompt,
-      conf.formData.aiFiltering.vip,
-    )
+    let gpt: ReturnType<typeof model.getModel>
+    try {
+      gpt = model.getModel(curModel, conf.formData.aiFiltering.prompt, useVip)
+    } catch (e: any) {
+      throw new AIFilteringError(`AI筛选模型初始化失败: ${e.message}`)
+    }
     if (gpt instanceof SignedKeyLLM) {
       void gpt.checkResume()
     }
@@ -462,8 +511,6 @@ export function handles() {
             })
           }
 
-          ctx.message = msg
-
           const buf = new Message({
             form_uid: uid.toString(),
             to_uid: ctx.bossData.data.bossId.toString(),
@@ -471,7 +518,15 @@ export function handles() {
             content: msg,
           })
 
-          buf.send()
+          const result = await buf.send({ timeoutMs: conf.formData.greetingAckTimeoutMs ?? 5000 })
+          if (!result.ok) {
+            throwGreetingFailure(statistics, result)
+          }
+
+          // ctx.message is only written after a verified ACK so an
+          // unconfirmed send never pollutes the recorded message in
+          // the log/statistics layer (AC2.2 + AC5.1).
+          ctx.message = msg
         } catch (e) {
           throw new GreetError(errorHandle(e))
         }
@@ -493,15 +548,18 @@ export function handles() {
 
   const aiGreeting: StepFactory = () => {
     const curModel = model.modelData.find((v) => conf.formData.aiGreeting.model === v.key)
-    if (!curModel && !conf.formData.aiGreeting.vip) {
+    const useVip = conf.formData.aiGreeting.vip === true
+    if (!curModel && !useVip) {
       ElMessage.warning('没有找到招呼语的模型')
       return
     }
-    const gpt = model.getModel(
-      curModel,
-      conf.formData.aiGreeting.prompt,
-      conf.formData.aiGreeting.vip,
-    )
+    let gpt: ReturnType<typeof model.getModel>
+    try {
+      gpt = model.getModel(curModel, conf.formData.aiGreeting.prompt, useVip)
+    } catch (e: any) {
+      ElMessage.error(`招呼语模型初始化失败: ${e.message}`)
+      return
+    }
     if (gpt instanceof SignedKeyLLM) {
       void gpt.checkResume()
     }
@@ -535,9 +593,6 @@ export function handles() {
           if (content == null) {
             return
           }
-          ctx.message = content
-          ctx.aiGreetingA = content
-          ctx.aiGreetingR = reasoning_content
           // chatInput.end(content)
           const buf = new Message({
             form_uid: uid.toString(),
@@ -545,7 +600,16 @@ export function handles() {
             to_name: ctx.bossData.data.encryptBossId, // encryptUserId
             content,
           })
-          buf.send()
+          const result = await buf.send({ timeoutMs: conf.formData.greetingAckTimeoutMs ?? 5000 })
+          if (!result.ok) {
+            throwGreetingFailure(statistics, result)
+          }
+          // Success-only writes (AC1.2 + AC2.2). `ctx.aiGreetingA` is the
+          // log-side "success marker" — recording it before the ACK would
+          // re-introduce the Bug Condition.
+          ctx.message = content
+          ctx.aiGreetingA = content
+          ctx.aiGreetingR = reasoning_content
         } catch (e) {
           // chatInput.end('Err~')
           throw new GreetError(errorHandle(e))

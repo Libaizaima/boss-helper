@@ -231,30 +231,38 @@ export const formInfoData: FormInfoData = {
     label: 'AI回复',
     'data-help': '万一消息太多，回不过来了呢，也许能和AiHR聊到地球爆炸？魔法击败魔法',
     example: [
-      `你是一名正在求职的候选人，HR 刚刚发来了一条消息，请你用简洁、礼貌、专业的语气回复。
+      `你是一名正在求职的候选人，请根据我的简历和与HR的对话历史，用简洁、礼貌、专业的语气回复HR最新的消息。
 
-HR消息：{{ data.message }}
+## 我的简历
+{{ data.resume }}
 
-要求：
+## 对话历史
+{{ data.history }}
+
+## HR最新消息
+{{ data.message }}
+
+## 回复要求
 - 回复简短，不超过100字
 - 保持积极主动的求职态度
-- 如果HR问到薪资期望，可以说"期望薪资面议，主要看岗位匹配度"
-- 如果HR邀请面试，表示感谢并确认时间
-- 直接输出回复内容，不要加任何前缀`,
+- 如果HR问薪资期望，回复"期望薪资面议，主要看岗位匹配度"
+- 如果HR邀请面试，表示感谢并确认
+- 直接输出回复内容，不加任何前缀`,
       [
         {
           role: 'system',
-          content: `你是一名正在求职的候选人助手，帮助候选人回复HR的消息。
-回复要求：
-- 简洁礼貌，不超过100字
-- 保持积极主动的求职态度
-- 如果HR问薪资，回复"期望薪资面议，主要看岗位匹配度"
-- 如果HR邀请面试，表示感谢并确认
-- 直接输出回复内容，不加任何前缀或解释`,
+          content: `你是一名正在求职的候选人助手，根据简历和对话历史帮助候选人回复HR消息。
+回复要求：简洁礼貌不超过100字，保持积极求职态度，问薪资回复"期望薪资面议"，邀请面试表示感谢并确认，直接输出回复内容。
+
+候选人简历：
+{{ data.resume }}`,
         },
         {
           role: 'user',
-          content: `HR发来的消息：{{ data.message }}`,
+          content: `对话历史：
+{{ data.history }}
+
+HR最新消息：{{ data.message }}`,
         },
       ],
     ],
@@ -428,5 +436,6 @@ export const defaultFormData: FormData = {
     deliveryPageNext: 60,
     messageSending: 5,
   },
+  greetingAckTimeoutMs: 5000,
   version: '20240401',
 }

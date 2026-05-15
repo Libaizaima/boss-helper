@@ -453,6 +453,18 @@ function syncSalaryRange() {
             :disabled="item.disable"
           />
         </ElFormItem>
+        <!-- ACK 超时配置（与反风控延迟同级，仅中级及以上可见） -->
+        <ElFormItem
+          label="招呼 ACK 超时"
+          data-help="等待 Boss 服务端确认招呼语已接收的超时时间（毫秒）。超时后该次打招呼记为「未确认」。范围 1000–15000，默认 5000。"
+        >
+          <ElInputNumber
+            v-model="conf.formData.greetingAckTimeoutMs"
+            :min="1000"
+            :max="15000"
+            :step="500"
+          />
+        </ElFormItem>
       </ElCollapseItem>
     </ElCollapse>
 

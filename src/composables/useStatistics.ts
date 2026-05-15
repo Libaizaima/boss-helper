@@ -30,6 +30,8 @@ export const useStatistics = defineStore('statistics', () => {
       repeat: 0,
       jobAddress: 0,
       amap: 0,
+      greetUnverified: 0,
+      greetRejected: 0,
     }
     return current
   })
