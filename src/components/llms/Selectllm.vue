@@ -46,7 +46,7 @@ const model = useModel()
 const show = defineModel<boolean>({ required: true })
 const currentModel = ref(conf.formData[props.data].model)
 const singleMode = ref(
-  conf.formData[props.data].vip
+  conf.formData[props.data].vip === true
     ? ('vip' as const)
     : !Array.isArray(conf.formData[props.data].prompt),
 )
@@ -222,6 +222,7 @@ async function savePrompt() {
       ElMessage.warning('请在右上角选择模型')
       return
     }
+    delete conf.formData[props.data].vip
     conf.formData[props.data].model = currentModel.value
   } else {
     conf.formData[props.data].vip = true
@@ -231,8 +232,14 @@ async function savePrompt() {
     conf.formData[props.data].score = score.value
   }
   await conf.confSaving()
-  // ElMessage.success('保存成功')
-  // show.value = false
+  ElMessage.success(
+    singleMode.value === 'vip'
+      ? '已保存会员模式'
+      : singleMode.value
+        ? '已保存单对话模式'
+        : '已保存多对话模式',
+  )
+  show.value = false
 }
 
 async function copyOnlineResume() {
