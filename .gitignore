@@ -40,3 +40,8 @@ logapi.zhipin.*.pem
 
 # Local OMX runtime state
 .omx/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
