@@ -5,10 +5,12 @@ export const useCommon = defineStore('common', () => {
   const deliverLock = ref(false)
   const deliverStop = ref(false)
   const appLoading = ref(false)
+  const helpVisible = ref(false)
 
   return {
     deliverLock,
     deliverStop,
     appLoading,
+    helpVisible,
   }
 })

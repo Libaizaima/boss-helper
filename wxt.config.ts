@@ -16,6 +16,19 @@ export default defineConfig({
     name: '__MSG_extName__',
     description: '__MSG_extDescription__',
     permissions: ['storage', 'cookies', 'notifications'],
+    browser_specific_settings: {
+      gecko: {
+        data_collection_permissions: {
+          required: [
+            'personallyIdentifyingInfo',
+            'authenticationInfo',
+            'personalCommunications',
+            'websiteContent',
+            'websiteActivity',
+          ],
+        },
+      },
+    },
     web_accessible_resources: [
       {
         resources: ['main-world.js'],
@@ -45,6 +58,9 @@ export default defineConfig({
   }),
   hooks: {
     'build:manifestGenerated': (wxt, manifest) => {
+      if (wxt.config.browser !== 'firefox') {
+        delete manifest.browser_specific_settings
+      }
       manifest.content_scripts ??= []
       manifest.content_scripts.push({
         // Build extension once to see where your CSS get's written to

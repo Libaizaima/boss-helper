@@ -140,6 +140,22 @@ function resetFilter() {
   })
 }
 
+const filterPercentage = computed(() => {
+  if (!statistics.todayData.total) return 0
+  const filtered = statistics.todayData.total - statistics.todayData.success
+  return Math.round((filtered / statistics.todayData.total) * 100)
+})
+
+const repeatPercentage = computed(() => {
+  if (!statistics.todayData.total) return 0
+  return Math.round((statistics.todayData.repeat / statistics.todayData.total) * 100)
+})
+
+const activePercentage = computed(() => {
+  if (!statistics.todayData.total) return 0
+  return Math.round((statistics.todayData.activityFilter / statistics.todayData.total) * 100)
+})
+
 onMounted(() => {
   statistics.updateStatistics()
 })
@@ -148,154 +164,397 @@ onMounted(() => {
 <template>
   <Alert
     id="config-statistics"
-    style="margin-bottom: 10px"
-    title="数据并不完全准确，投递上限根据自身情况调整, 建议 120-140, boss限制最高150"
+    style="margin-bottom: 16px"
+    title="数据并不完全准确，投递上限根据自身情况调整，建议 120-140，boss 限制最高 150"
     type="warning"
   />
-  <ElRow v-if="conf.config_level.intermediate" :gutter="20">
-    <ElCol :span="5">
-      <ElStatistic
-        data-help="统计当天脚本扫描过的所有岗位"
-        :value="statistics.todayData.total"
-        title="岗位总数："
-        suffix="份"
-      />
-    </ElCol>
-    <ElCol :span="5">
-      <ElStatistic
-        data-help="统计当天岗位过滤的比例,被过滤/总数"
-        :value="
-          ((statistics.todayData.total - statistics.todayData.success) /
-            statistics.todayData.total) *
-          deliveryLimit
-        "
-        title="过滤比例："
-        suffix="%"
-      />
-    </ElCol>
-    <ElCol :span="5">
-      <ElStatistic
-        data-help="统计当天岗位中已沟通的比例,已沟通/总数"
-        :value="(statistics.todayData.repeat / statistics.todayData.total) * deliveryLimit"
-        title="沟通比例："
-        suffix="%"
-      />
-    </ElCol>
-    <ElCol :span="5">
-      <ElStatistic
-        data-help="统计当天岗位中的活跃情况,不活跃/总数"
-        :value="(statistics.todayData.activityFilter / statistics.todayData.total) * deliveryLimit"
-        title="活跃比例："
-        suffix="%"
-      />
-    </ElCol>
-    <ElCol :span="4">
-      <ElStatistic
-        :data-help="statisticCycleData[statisticCycle].help"
-        :value="cycle + statistics.todayData.success"
-        suffix="份"
-      >
-        <template #title>
-          <ElDropdown
-            trigger="click"
-            @command="
-              (arg) => {
-                statisticCycle = arg
-              }
-            "
+
+  <div class="statistics-card">
+    <div class="card-title">投递进度概览</div>
+
+    <div class="metrics-grid">
+      <!-- 岗位总数 -->
+      <div class="metric-item" data-help="统计当天脚本扫描过的所有岗位">
+        <div class="metric-icon-wrapper blue-bg">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
           >
-            <span class="el-dropdown-link">
-              {{ statisticCycleData[statisticCycle].label }}:
-              <ElIcon class="el-icon--right">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-                  <path
-                    fill="currentColor"
-                    d="M831.872 340.864 512 652.672 192.128 340.864a30.592 30.592 0 0 0-42.752 0 29.12 29.12 0 0 0 0 41.6L489.664 714.24a32 32 0 0 0 44.672 0l340.288-331.712a29.12 29.12 0 0 0 0-41.728 30.592 30.592 0 0 0-42.752 0z"
-                  />
-                </svg>
-              </ElIcon>
-            </span>
-            <template #dropdown>
-              <ElDropdownMenu>
-                <ElDropdownItem
-                  v-for="(item, index) in statisticCycleData"
-                  :key="index"
-                  :command="index"
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">岗位总数</span>
+          <span class="metric-value">{{ statistics.todayData.total }}</span>
+        </div>
+      </div>
+
+      <!-- 过滤比例 -->
+      <div class="metric-item" data-help="统计当天岗位过滤的比例,被过滤/总数">
+        <div class="metric-icon-wrapper green-bg">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">过滤比例</span>
+          <span class="metric-value">{{ filterPercentage }}%</span>
+        </div>
+      </div>
+
+      <!-- 沟通比例 -->
+      <div class="metric-item" data-help="统计当天岗位中已沟通的比例,已沟通/总数">
+        <div class="metric-icon-wrapper purple-bg">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">沟通比例</span>
+          <span class="metric-value">{{ repeatPercentage }}%</span>
+        </div>
+      </div>
+
+      <!-- 活跃比例 -->
+      <div class="metric-item" data-help="统计当天岗位中的活跃情况,不活跃/总数">
+        <div class="metric-icon-wrapper orange-bg">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"
+            ></path>
+          </svg>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label">活跃比例</span>
+          <span class="metric-value">{{ activePercentage }}%</span>
+        </div>
+      </div>
+
+      <!-- 周期投递 (e.g. 本周投递) -->
+      <div class="metric-item" :data-help="statisticCycleData[statisticCycle].help">
+        <div class="metric-icon-wrapper blue-bg">
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </div>
+        <div class="metric-info">
+          <span class="metric-label-dropdown">
+            <ElDropdown
+              trigger="click"
+              @command="
+                (arg) => {
+                  statisticCycle = arg
+                }
+              "
+            >
+              <span class="el-dropdown-link">
+                {{ statisticCycleData[statisticCycle].label }}
+                <svg
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="margin-left: 2px"
                 >
-                  {{ item.label }}
-                </ElDropdownItem>
-              </ElDropdownMenu>
-            </template>
-          </ElDropdown>
-        </template>
-      </ElStatistic>
-    </ElCol>
-  </ElRow>
-  <!-- 打招呼 ACK 状态角标（仅当有未确认或失败记录时显示） -->
-  <ElRow
-    v-if="(statistics.todayData.greetUnverified ?? 0) > 0 || (statistics.todayData.greetRejected ?? 0) > 0"
-    :gutter="20"
-    style="margin-top: 8px"
-  >
-    <ElCol v-if="(statistics.todayData.greetUnverified ?? 0) > 0" :span="8">
-      <ElStatistic
-        data-help="打招呼消息在 ACK 超时窗口内未收到服务端确认（可能已发出但无法验证）。可在配置中调整 ACK 超时时间。"
-        :value="statistics.todayData.greetUnverified ?? 0"
-        title="招呼未确认："
-        suffix="次"
-        class="greet-stat-warn"
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+              <template #dropdown>
+                <ElDropdownMenu>
+                  <ElDropdownItem
+                    v-for="(item, index) in statisticCycleData"
+                    :key="index"
+                    :command="index"
+                  >
+                    {{ item.label }}
+                  </ElDropdownItem>
+                </ElDropdownMenu>
+              </template>
+            </ElDropdown>
+          </span>
+          <span class="metric-value">{{ cycle + statistics.todayData.success }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-section">
+      <ElProgress
+        :percentage="Number(((statistics.todayData.success / deliveryLimit) * 100).toFixed(1))"
+        :stroke-width="8"
+        class="custom-progress"
       />
-    </ElCol>
-    <ElCol v-if="(statistics.todayData.greetRejected ?? 0) > 0" :span="8">
-      <ElStatistic
-        data-help="打招呼消息被服务端明确拒绝，或渠道异常导致发送失败。请检查日志面板中的「打招呼出错」条目。"
-        :value="statistics.todayData.greetRejected ?? 0"
-        title="招呼失败："
-        suffix="次"
-        class="greet-stat-danger"
-      />
-    </ElCol>
-  </ElRow>
-  <div style="display: flex">
-    <ElButtonGroup style="margin: 10px 30px 0 0">
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-section">
       <ElButton
         type="primary"
-        data-help="点击开始就会开始投递"
+        size="large"
+        class="action-btn start-btn"
         :loading="common.deliverLock"
         @click="startBatch"
       >
-        开始
+        <template #icon>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </template>
+        {{ common.deliverLock ? '正在投递' : '开始投递' }}
       </ElButton>
-      <ElButton
-        v-if="!common.deliverLock && common.deliverStop"
-        type="warning"
-        data-help="重置已被筛选的岗位，开始将重新处理"
-        @click="resetFilter"
-      >
-        重置筛选
-      </ElButton>
+
       <ElButton
         v-if="common.deliverLock && !common.deliverStop"
         type="warning"
-        data-help="暂停后应该能继续"
-        @click="stopDeliver()"
+        size="large"
+        class="action-btn pause-btn"
+        @click="stopDeliver"
       >
-        暂停
+        <template #icon>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+        </template>
+        暂停投递
       </ElButton>
-    </ElButtonGroup>
-    <ElProgress
-      data-help="我会统计当天脚本投递的数量,该记录并不准确"
-      style="flex: 1"
-      :percentage="Number(((statistics.todayData.success / deliveryLimit) * 100).toFixed(1))"
-    />
+
+      <ElButton
+        v-if="!common.deliverLock && common.deliverStop"
+        type="default"
+        size="large"
+        class="action-btn reset-btn"
+        @click="resetFilter"
+      >
+        <template #icon>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+        </template>
+        重置筛选
+      </ElButton>
+    </div>
   </div>
 </template>
 
-<style lang="scss">
-.greet-stat-warn .ehp-statistic__number {
-  color: var(--el-color-warning);
-}
-.greet-stat-danger .ehp-statistic__number {
-  color: var(--el-color-danger);
+<style lang="scss" scoped>
+.statistics-card {
+  background: #ffffff;
+  padding: 4px 0 0;
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 20px;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .metric-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+
+    .metric-icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+
+      &.blue-bg {
+        background: #eff6ff;
+        color: #2563eb;
+      }
+      &.green-bg {
+        background: #f0fdf4;
+        color: #16a34a;
+      }
+      &.purple-bg {
+        background: #faf5ff;
+        color: #9333ea;
+      }
+      &.orange-bg {
+        background: #fff7ed;
+        color: #ea580c;
+      }
+    }
+
+    .metric-info {
+      display: flex;
+      flex-direction: column;
+
+      .metric-label {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
+      }
+
+      .metric-label-dropdown {
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+
+        .el-dropdown-link {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          color: #64748b;
+          font-size: 12px;
+        }
+      }
+
+      .metric-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 2px;
+      }
+    }
+  }
+
+  .progress-section {
+    margin-bottom: 24px;
+
+    :deep(.ehp-progress-bar__inner) {
+      background-color: #2563eb;
+    }
+    :deep(.ehp-progress__text) {
+      font-weight: 600;
+      color: #1e293b;
+    }
+  }
+
+  .actions-section {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 8px;
+      height: 40px;
+      font-size: 14px;
+      border-width: 1px;
+
+      &.start-btn {
+        background-color: #2563eb;
+        border-color: #2563eb;
+        color: #ffffff;
+        &:hover {
+          background-color: #1d4ed8;
+          border-color: #1d4ed8;
+        }
+      }
+
+      &.reset-btn {
+        background-color: #ffffff;
+        border-color: #2563eb;
+        color: #2563eb;
+        &:hover {
+          background-color: #eff6ff;
+        }
+      }
+
+      &.pause-btn {
+        background-color: #f59e0b;
+        border-color: #f59e0b;
+        color: #ffffff;
+        &:hover {
+          background-color: #d97706;
+        }
+      }
+    }
+  }
 }
 </style>

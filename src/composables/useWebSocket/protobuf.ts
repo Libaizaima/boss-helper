@@ -1,119 +1,109 @@
 import { ElMessage } from 'element-plus'
 
-import {
-  BOSS_HELPER_CHAT_BRIDGE_SEND,
-  BOSS_HELPER_CHAT_BRIDGE_SOURCE,
-  type BossHelperChatMessageArgs,
-  type BossHelperChatSendRequest,
-  isBossHelperChatSendResult,
-} from './chatBridge'
-import { mqtt } from './mqtt'
+import { useLog } from '@/stores/log'
+import { logger } from '@/utils/logger'
+
+import { ackRegistry, type SendChannel, type SendResult } from './ackRegistry'
 import type { TechwolfChatProtocol } from './type'
 import { AwesomeMessage } from './type'
 
-type MessageArgs = BossHelperChatMessageArgs
+export type { SendChannel, SendFailureReason, SendResult } from './ackRegistry'
 
-let packetMessageId = 0
-
-function nextPacketMessageId() {
-  packetMessageId = (packetMessageId % 0xffff) + 1
-  return packetMessageId
+export interface SendOptions {
+  timeoutMs?: number
+  expectAck?: boolean
 }
 
-interface SocketLike {
-  readyState: number
-  send: (data: ArrayBuffer) => void
+interface MessageArgs {
+  form_uid: string
+  to_uid: string
+  to_name: string
+  friend_source?: number
+  content?: string
+  image?: string
 }
 
-function isOpenWebSocket(socket: unknown): socket is SocketLike {
-  return (
-    typeof socket === 'object' &&
-    socket != null &&
-    'readyState' in socket &&
-    'send' in socket &&
-    socket.readyState === WebSocket.OPEN &&
-    typeof socket.send === 'function'
-  )
-}
-
-function getSocket(target: Window | null | undefined) {
+function logToPanel(title: string, message: string, payload?: unknown) {
   try {
-    return target?.socket
+    useLog().debug(title, message, payload)
   } catch {
-    return undefined
+    // Pinia may not be ready in tests or early page bootstrap.
   }
 }
 
-function resolveChatSocket() {
-  const candidates = [getSocket(window), getSocket(window.top), getSocket(window.parent)]
+ackRegistry.setDiagnosticsLogger(logToPanel)
 
-  return candidates.find(isOpenWebSocket)
+function resolveTimeoutMs(input: number | undefined): number {
+  if (typeof input !== 'number' || !Number.isFinite(input)) return 5000
+  if (input < 1000) return 1000
+  if (input > 15000) return 15000
+  return input
 }
 
-function normalizeError(error: unknown) {
-  if (error instanceof Error) {
-    return error
+function truncate(value: string | undefined, max = 120): string {
+  if (value == null) return ''
+  return value.length > max ? `${value.slice(0, max)}...` : value
+}
+
+async function attachOutcomeLogger(
+  pending: Promise<SendResult>,
+  content: string | undefined,
+): Promise<SendResult> {
+  const result = await pending
+  if (result.ok) {
+    logToPanel('消息发送/已确认', `通过 ${result.channel} 发送已确认: ${content ?? ''}`, {
+      cmid: result.cmid,
+      channel: result.channel,
+      ackMid: result.ackMid,
+      ackSource: result.ackSource,
+      serverCode: result.serverCode,
+    })
+    return result
   }
 
-  return new Error(typeof error === 'string' ? error : '打招呼发送失败')
-}
-
-async function sendThroughMainWorldBridge(args: MessageArgs) {
-  const requestId = `boss-helper-chat-${Date.now()}-${Math.random().toString(16).slice(2)}`
-
-  await new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      cleanup()
-      reject(new Error('主世界聊天桥接超时'))
-    }, 25000)
-
-    const cleanup = () => {
-      window.clearTimeout(timer)
-      window.removeEventListener('message', handler)
-    }
-
-    const handler = (event: MessageEvent<unknown>) => {
-      if (event.source !== window || !isBossHelperChatSendResult(event.data)) {
-        return
-      }
-
-      if (event.data.requestId !== requestId) {
-        return
-      }
-
-      cleanup()
-
-      if (event.data.success) {
-        resolve()
-        return
-      }
-
-      reject(new Error(event.data.error ?? '主世界聊天发送失败'))
-    }
-
-    window.addEventListener('message', handler)
-
-    const request: BossHelperChatSendRequest = {
-      source: BOSS_HELPER_CHAT_BRIDGE_SOURCE,
-      type: BOSS_HELPER_CHAT_BRIDGE_SEND,
-      requestId,
-      payload: args,
-    }
-    window.postMessage(request, '*')
-  })
+  switch (result.reason) {
+    case 'TIMEOUT':
+    case 'UNVERIFIED':
+    case 'CMID_COLLISION':
+      logToPanel('消息发送/未确认', `ACK 未确认: ${content ?? ''}`, {
+        cmid: result.cmid,
+        channel: result.channel,
+        reason: result.reason,
+      })
+      break
+    case 'SERVER_REJECTED':
+      logToPanel(
+        '消息发送/服务端拒绝',
+        `服务端拒绝(code=${result.serverCode ?? ''}): ${truncate(result.serverMessage)}`,
+        {
+          cmid: result.cmid,
+          channel: result.channel,
+          serverCode: result.serverCode,
+          serverMessage: result.serverMessage,
+        },
+      )
+      break
+    default:
+      break
+  }
+  return result
 }
 
 export class Message {
+  msg: Uint8Array
   payload: Uint8Array
   packet: Uint8Array
   hex: string
   args: MessageArgs
+  readonly cmid: string
 
   constructor(args: MessageArgs) {
     this.args = args
 
     const now = Date.now()
     const mid = now + 68256432452609
+    this.cmid = mid.toString()
+
     const data: TechwolfChatProtocol = {
       messages: [
         {
@@ -124,74 +114,176 @@ export class Message {
           to: {
             uid: args.to_uid,
             name: args.to_name,
-            source: args.friend_source ?? 0,
+            source: 0,
           },
           type: 1,
-          mid: mid.toString(),
+          mid: this.cmid,
           time: now.toString(),
           body: {
             type: 1,
             templateId: 1,
             text: args.content,
           },
-          cmid: mid.toString(),
+          cmid: this.cmid,
         },
       ],
       type: 1,
     }
 
-    this.payload = AwesomeMessage.encode(data).finish().slice()
-    this.packet = mqtt.encode({
-      messageId: nextPacketMessageId(),
-      payload: this.payload,
-    })
-    this.hex = [...this.packet].map((b) => b.toString(16).padStart(2, '0')).join('')
+    this.msg = AwesomeMessage.encode(data).finish().slice()
+    this.payload = this.msg
+    this.packet = this.msg
+    this.hex = [...this.msg].map((b) => b.toString(16).padStart(2, '0')).join('')
   }
 
   toArrayBuffer(): ArrayBuffer {
-    return this.packet.buffer.slice(
-      this.packet.byteOffset,
-      this.packet.byteOffset + this.packet.byteLength,
+    return this.msg.buffer.slice(
+      this.msg.byteOffset,
+      this.msg.byteOffset + this.msg.byteLength,
     ) as ArrayBuffer
   }
 
   toPayloadArrayBuffer(): ArrayBuffer {
-    return this.payload.buffer.slice(
-      this.payload.byteOffset,
-      this.payload.byteOffset + this.payload.byteLength,
-    ) as ArrayBuffer
+    return this.toArrayBuffer()
   }
 
-  async send() {
-    let lastError: Error | null = null
+  private sendInfo(channel?: SendChannel) {
+    return {
+      cmid: this.cmid,
+      channel,
+      to_uid: this.args.to_uid,
+      to_name: this.args.to_name,
+      content: this.args.content,
+    }
+  }
 
+  private async sendWithAck(
+    channel: SendChannel,
+    timeoutMs: number,
+    send: () => void,
+  ): Promise<SendResult> {
+    const pending = ackRegistry.register(this.cmid, timeoutMs, channel)
     try {
-      await sendThroughMainWorldBridge(this.args)
-      return
+      send()
     } catch (error) {
-      lastError = normalizeError(error)
+      const message = error instanceof Error ? error.message : String(error)
+      ackRegistry.resolveFail(this.cmid, 'CHANNEL_SYNC_THROW')
+      logger.error(`[Send] ${channel} 发送异常`, message)
+      logToPanel(`消息发送/${channel} 异常`, message, this.sendInfo(channel))
+      return attachOutcomeLogger(pending, this.args.content)
     }
 
-    try {
-      if ('ChatWebsocket' in window && window.ChatWebsocket != null) {
-        window.ChatWebsocket.send({
-          toArrayBuffer: () => this.toPayloadArrayBuffer(),
-        })
-        return
-      }
+    logToPanel(
+      '消息发送/已入队',
+      `通过 ${channel} 发送: ${this.args.content ?? ''}`,
+      this.sendInfo(channel),
+    )
+    return attachOutcomeLogger(pending, this.args.content)
+  }
 
-      const socket = resolveChatSocket()
+  async send(opts?: SendOptions): Promise<SendResult> {
+    const timeoutMs = resolveTimeoutMs(opts?.timeoutMs)
+    const expectAck = opts?.expectAck ?? true
 
-      if (socket != null) {
-        socket.send(this.toArrayBuffer())
-        return
+    const geekClient = window.GeekChatCore?.getInstance?.()?.getClient?.()?.client
+    if (typeof geekClient?.send === 'function') {
+      const channel: SendChannel = 'GeekChatCore'
+      if (!expectAck) {
+        try {
+          geekClient.send(this)
+          logToPanel(
+            '消息发送/已入队',
+            `通过 GeekChatCore 发送: ${this.args.content ?? ''}`,
+            this.sendInfo(channel),
+          )
+          return { ok: true, channel, cmid: this.cmid }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          logger.error('[Send] GeekChatCore 发送异常', message)
+          logToPanel('消息发送/GeekChatCore 异常', message, this.sendInfo(channel))
+          return { ok: false, channel, cmid: this.cmid, reason: 'CHANNEL_SYNC_THROW' }
+        }
       }
-    } catch (error) {
-      lastError = normalizeError(error)
+      return this.sendWithAck(channel, timeoutMs, () => geekClient.send(this))
     }
 
-    const error = lastError ?? new Error('未找到可用聊天连接')
-    ElMessage.error(error.message)
-    throw error
+    if (window.ChatWebsocket != null && typeof window.ChatWebsocket.send === 'function') {
+      const channel: SendChannel = 'ChatWebsocket'
+      if (!expectAck) {
+        try {
+          window.ChatWebsocket.send(this)
+          logToPanel(
+            '消息发送/已入队',
+            `通过 ChatWebsocket 发送: ${this.args.content ?? ''}`,
+            this.sendInfo(channel),
+          )
+          return { ok: true, channel, cmid: this.cmid }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          logger.error('[Send] ChatWebsocket 发送异常', message)
+          logToPanel('消息发送/ChatWebsocket 异常', message, this.sendInfo(channel))
+          return { ok: false, channel, cmid: this.cmid, reason: 'CHANNEL_SYNC_THROW' }
+        }
+      }
+      return this.sendWithAck(channel, timeoutMs, () => window.ChatWebsocket!.send(this))
+    }
+
+    logToPanel('消息发送/通道诊断', '可验证发送通道不可用，准备退回 EventBus', {
+      cmid: this.cmid,
+      diagnostics: ackRegistry.getSendDiagnostics(),
+    })
+
+    if (window.EventBus != null && typeof window.EventBus.publish === 'function') {
+      const channel: SendChannel = 'EventBus'
+      try {
+        let callbackFailed = false
+        window.EventBus.publish(
+          'CHAT_SEND_TEXT',
+          {
+            uid: this.args.to_uid,
+            encryptUid: this.args.to_name,
+            message: this.args.content,
+            msg: this.args.content,
+          },
+          () => {
+            logToPanel(
+              '消息发送/未确认',
+              `EventBus 已入队但无法验证服务端接收: ${this.args.content ?? ''}`,
+              { ...this.sendInfo(channel), reason: 'UNVERIFIED' },
+            )
+          },
+          () => {
+            callbackFailed = true
+            logToPanel('消息发送/EventBus 失败', '回调返回失败', this.sendInfo(channel))
+          },
+        )
+        logToPanel(
+          '消息发送/已入队',
+          `通过 EventBus 发送: ${this.args.content ?? ''}`,
+          this.sendInfo(channel),
+        )
+        if (callbackFailed) {
+          return { ok: false, channel, cmid: this.cmid, reason: 'EVENTBUS_FAILED' }
+        }
+        if (!expectAck) {
+          return { ok: true, channel, cmid: this.cmid }
+        }
+        return { ok: false, channel, cmid: this.cmid, reason: 'UNVERIFIED' }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        logger.error('[Send] EventBus 发送异常', message)
+        logToPanel('消息发送/EventBus 异常', message, this.sendInfo(channel))
+        return { ok: false, channel, cmid: this.cmid, reason: 'CHANNEL_SYNC_THROW' }
+      }
+    }
+
+    const errMsg = `无可用消息发送渠道: GeekChatCore=${window.GeekChatCore != null}, ChatWebsocket=${window.ChatWebsocket != null}, EventBus=${window.EventBus != null}`
+    logger.error(`[Send] ${errMsg}`)
+    logToPanel('消息发送/全部失败', errMsg, {
+      ...this.sendInfo('none'),
+      diagnostics: ackRegistry.getSendDiagnostics(),
+    })
+    ElMessage.error(errMsg)
+    return { ok: false, channel: 'none', cmid: this.cmid, reason: 'NO_CHANNEL' }
   }
 }

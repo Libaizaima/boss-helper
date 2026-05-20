@@ -37,3 +37,6 @@ logapi.zhipin.*.pem
 
 /temp
 .kiro
+
+# Local OMX runtime state
+.omx/

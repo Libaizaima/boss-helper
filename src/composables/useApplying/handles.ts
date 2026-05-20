@@ -4,7 +4,7 @@ import { miTem } from 'mitem'
 import { useChat } from '@/composables/useChat'
 import { useModel } from '@/composables/useModel'
 import { useStatistics } from '@/composables/useStatistics'
-import { Message } from '@/composables/useWebSocket'
+import { Message, type SendResult } from '@/composables/useWebSocket'
 import { counter } from '@/message'
 import { useConf } from '@/stores/conf'
 import type { logData } from '@/stores/log'
@@ -462,8 +462,6 @@ export function handles() {
             })
           }
 
-          ctx.message = msg
-
           const buf = new Message({
             form_uid: uid.toString(),
             to_uid: ctx.bossData.data.bossId.toString(),
@@ -472,7 +470,10 @@ export function handles() {
             content: msg,
           })
 
-          await buf.send()
+          classifyGreetingSendFailure(
+            await buf.send({ timeoutMs: conf.formData.greetingAckTimeoutMs }),
+          )
+          ctx.message = msg
         } catch (e) {
           throw new GreetError(errorHandle(e))
         }
@@ -490,6 +491,24 @@ export function handles() {
       name: ctx.listData.brandName,
       avatar: ctx.listData.brandLogo,
     })
+  }
+
+  function classifyGreetingSendFailure(result: SendResult) {
+    if (result.ok) {
+      return
+    }
+    switch (result.reason) {
+      case 'TIMEOUT':
+      case 'UNVERIFIED':
+      case 'CMID_COLLISION':
+        statistics.todayData.greetUnverified = (statistics.todayData.greetUnverified ?? 0) + 1
+        break
+      default:
+        statistics.todayData.greetRejected = (statistics.todayData.greetRejected ?? 0) + 1
+        break
+    }
+    const serverMessage = result.serverMessage ? `: ${result.serverMessage}` : ''
+    throw new GreetError(`打招呼失败：${result.reason}${serverMessage}`)
   }
 
   const aiGreeting: StepFactory = () => {
@@ -536,9 +555,6 @@ export function handles() {
           if (content == null) {
             return
           }
-          ctx.message = content
-          ctx.aiGreetingA = content
-          ctx.aiGreetingR = reasoning_content
           // chatInput.end(content)
           const buf = new Message({
             form_uid: uid.toString(),
@@ -547,7 +563,12 @@ export function handles() {
             friend_source: ctx.bossData.data.bossSource,
             content,
           })
-          await buf.send()
+          classifyGreetingSendFailure(
+            await buf.send({ timeoutMs: conf.formData.greetingAckTimeoutMs }),
+          )
+          ctx.message = content
+          ctx.aiGreetingA = content
+          ctx.aiGreetingR = reasoning_content
         } catch (e) {
           // chatInput.end('Err~')
           throw new GreetError(errorHandle(e))

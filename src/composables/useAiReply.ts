@@ -14,7 +14,7 @@
 
 import { useModel } from '@/composables/useModel'
 import { Message } from '@/composables/useWebSocket'
-import { AwesomeMessage } from '@/composables/useWebSocket/type'
+import { AwesomeMessage, type TechwolfChatProtocol } from '@/composables/useWebSocket/type'
 import { useConf } from '@/stores/conf'
 import { useUser } from '@/stores/user'
 import { logger } from '@/utils/logger'
@@ -71,9 +71,7 @@ function appendHistory(uid: string, role: 'hr' | 'me', text: string) {
 function formatHistory(uid: string): string {
   const history = chatHistory.get(uid)
   if (!history || history.length === 0) return ''
-  return history
-    .map((m) => `${m.role === 'hr' ? 'HR' : '我'}: ${m.text}`)
-    .join('\n')
+  return history.map((m) => `${m.role === 'hr' ? 'HR' : '我'}: ${m.text}`).join('\n')
 }
 
 /**
@@ -84,7 +82,7 @@ function decodeMessage(data: ArrayBuffer | Blob | string) {
     if (typeof data === 'string') return null
     const buf = data instanceof ArrayBuffer ? new Uint8Array(data) : null
     if (!buf) return null
-    const protocol = AwesomeMessage.decode(buf)
+    const protocol = AwesomeMessage.decode(buf) as unknown as TechwolfChatProtocol
     return protocol
   } catch {
     return null
@@ -196,12 +194,12 @@ async function replyToMessage({
       {
         data: {
           data: {
-            message: text,      // 当前 HR 消息，模板里用 {{ data.message }}
-            history,            // 历史对话，模板里用 {{ data.history }}
-            resume,             // 我的简历，模板里用 {{ data.resume }}
-          } as any,
+            message: text, // 当前 HR 消息，模板里用 {{ data.message }}
+            history, // 历史对话，模板里用 {{ data.history }}
+            resume, // 我的简历，模板里用 {{ data.resume }}
+          },
         },
-      },
+      } as any,
       'aiReply',
     )
     replyContent = content
@@ -231,7 +229,7 @@ async function replyToMessage({
     to_name: fromUid,
     content: replyContent,
   })
-  buf.send()
+  void buf.send()
 }
 
 /**

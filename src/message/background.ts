@@ -42,7 +42,6 @@ export class BackgroundCounter {
     const userConf = await storage.getItem<UserConf>(userKey, { fallback: {} })
     if (uid in userConf) {
       const cookies = await browser.cookies.getAll({ url: 'https://zhipin.com' })
-      console.log(`待删除cookies ${cookies.length} 个`)
       await Promise.all(
         cookies.map(async (cookie) => {
           await browser.cookies.remove({
@@ -54,9 +53,6 @@ export class BackgroundCounter {
 
       const targetUser = userConf[uid]
 
-      console.log('切换账号 targetUser', targetUser)
-
-      console.log(`待设置cookies ${targetUser.cookies.length} 个`)
       await Promise.all(
         targetUser.cookies.map(async (ck) => {
           await browser.cookies.set({
@@ -95,7 +91,6 @@ export class BackgroundCounter {
 
   async cookieClear() {
     const cookies = await browser.cookies.getAll({ url: 'https://zhipin.com' })
-    console.log(`待删除cookies ${cookies.length} 个`)
     await Promise.all(
       cookies.map(async (cookie) => {
         await browser.cookies.remove({
@@ -113,7 +108,6 @@ export class BackgroundCounter {
     timeout: number
     responseType: ResponseType
   }) {
-    console.log('request', args)
     const signal = AbortSignal.timeout(args.timeout * 1000)
 
     const res = await fetch(args.url, {
@@ -122,8 +116,6 @@ export class BackgroundCounter {
       mode: 'cors',
       credentials: 'include',
     }).then(async (res) => {
-      console.log('request res', res)
-
       if (!res.ok || res.status >= 400) {
         const errorText = await res.text()
         throw new Error(`状态码: ${res.status}: ${errorText}`)

@@ -35,8 +35,8 @@ import Ai from './Ai.vue'
 import Appearance from './Appearance.vue'
 
 const conf = useConf()
-
-const { deliverLock } = useCommon()
+const common = useCommon()
+const { deliverLock } = common
 const amapGeocodeLoading = ref(false)
 async function amapGeocodeHandler() {
   amapGeocodeLoading.value = true
@@ -80,32 +80,86 @@ function syncSalaryRange() {
 </script>
 
 <template>
-  <Alert
-    id="config-alert-1"
-    style="margin-bottom: 10px"
-    show-icon
-    title="进行配置前都请先阅读完整的帮助文档，再进行配置，如有bug请反馈"
-    type="success"
-    description="滚动到底部，差不多150个岗位左右，也会自动停止, 刷新或者变更期望重新获取新的岗位即可。"
-  />
-  <Alert id="config-alert-2" style="margin-bottom: 10px" type="success" show-icon>
-    <template #title>
-      使用自定义招呼语前 推荐禁用boss直聘自带招呼语
-      <ElLink
-        href="https://www.zhipin.com/web/geek/notify-set?type=greetSet"
-        target="_blank"
-        type="warning"
-      >
-        点我前往设置
-      </ElLink>
-    </template>
-  </Alert>
-  <Alert
-    id="config-alert-3"
-    style="margin-bottom: 10px"
-    type="success"
-    description="所有配置选项皆有帮助提示，不懂用法请进入帮助模式进行查看，若是对帮助说明有疑问请反馈最好能给出改进意见。"
-  />
+  <div class="config-banner-card">
+    <div class="banner-left">
+      <div class="banner-title-row">
+        <span class="banner-title-icon">
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span class="banner-title">合理配置，提升投递效率</span>
+      </div>
+      <div class="banner-desc">配置项均提供帮助说明，按需调整即可。</div>
+      <div class="banner-actions">
+        <ElButton
+          size="default"
+          class="banner-btn help-btn"
+          @click="common.helpVisible = !common.helpVisible"
+        >
+          <template #icon>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </template>
+          查看帮助
+        </ElButton>
+        <ElButton size="default" class="banner-btn recommend-btn" @click="conf.confRecommend">
+          <template #icon>
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"
+              ></path>
+            </svg>
+          </template>
+          使用推荐配置
+        </ElButton>
+      </div>
+    </div>
+    <div class="banner-right">
+      <svg viewBox="0 0 120 120" width="80" height="80" style="color: #10b981">
+        <circle cx="60" cy="60" r="50" fill="#f0fdf4" stroke="#d1fae5" stroke-width="2" />
+        <path
+          d="M38 65l12 12 32-32"
+          fill="none"
+          stroke="#10b981"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <circle cx="90" cy="85" r="12" fill="#34d399" opacity="0.15" />
+        <circle cx="25" cy="35" r="10" fill="#34d399" opacity="0.1" />
+      </svg>
+    </div>
+  </div>
   <ElForm
     inline
     label-position="left"
@@ -113,8 +167,30 @@ function syncSalaryRange() {
     :model="conf.formData"
     :disabled="deliverLock"
   >
-    <ElCollapse accordion>
-      <ElCollapseItem title="筛选配置" name="1">
+    <ElCollapse accordion class="custom-config-collapse">
+      <ElCollapseItem name="1">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper blue-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">筛选配置</div>
+              <div class="header-desc">设置岗位筛选条件，过滤不符合要求的职位</div>
+            </div>
+          </div>
+        </template>
         <Alert
           id="filter-config-alert-enable"
           title="复选框打钩才会启用，别忘记打钩启用哦。保存也别忘了"
@@ -316,8 +392,57 @@ function syncSalaryRange() {
           />
         </ElSpace>
       </ElCollapseItem>
-      <ElCollapseItem title="外观配置" name="5"> <Appearance /></ElCollapseItem>
-      <ElCollapseItem v-if="conf.config_level.advanced" title="地址配置" name="4">
+      <ElCollapseItem name="5">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper purple-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a7 7 0 0 0-7 7c0 4.3 7 13 7 13s7-8.7 7-7a7 7 0 0 0-7-7z"></path>
+                <circle cx="12" cy="9" r="2"></circle>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">外观配置</div>
+              <div class="header-desc">自定义主题、布局等界面展示设置</div>
+            </div>
+          </div>
+        </template>
+        <Appearance />
+      </ElCollapseItem>
+      <ElCollapseItem v-if="conf.config_level.advanced" name="4">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper map-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">地址配置</div>
+              <div class="header-desc">设置地点偏好，优先投递目标城市/地区</div>
+            </div>
+          </div>
+        </template>
         <Alert id="config-amap-2" style="margin-bottom: 10px" show-icon type="info">
           <template #title>
             使用高德地图前 推荐结合工作地址包含使用, 需自行申请key,
@@ -436,10 +561,57 @@ function syncSalaryRange() {
           </ElInputNumber>
         </ElFormItem>
       </ElCollapseItem>
-      <ElCollapseItem v-if="conf.config_level.advanced" title="AI配置" name="2">
+      <ElCollapseItem v-if="conf.config_level.advanced" name="2">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper ai-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">AI配置</div>
+              <div class="header-desc">配置 AI 模型与能力，提升匹配与生成效果</div>
+            </div>
+          </div>
+        </template>
         <Ai />
       </ElCollapseItem>
-      <ElCollapseItem v-if="conf.config_level.intermediate" title="延迟配置" name="3">
+      <ElCollapseItem v-if="conf.config_level.intermediate" name="3">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper timer-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">延迟配置</div>
+              <div class="header-desc">设置操作延迟与间隔，降低平台风控风险</div>
+            </div>
+          </div>
+        </template>
         <ElFormItem
           v-for="(item, key) in formInfoData.delay"
           :key
@@ -468,7 +640,7 @@ function syncSalaryRange() {
       </ElCollapseItem>
     </ElCollapse>
 
-    <div style="margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap">
+    <div class="config-bottom-controls-row">
       <ElFormItem label="配置级别" :data-help="formInfoData.config_level['data-help']">
         <ElSelect v-model="conf.formData.config_level" style="width: 120px">
           <ElOption
@@ -507,49 +679,385 @@ function syncSalaryRange() {
       </ElFormItem>
     </div>
   </ElForm>
-  <div style="margin-top: 15px">
-    <ElButton type="success" data-help="保存配置，会自动刷新页面。" @click="conf.confSaving">
+
+  <div class="bottom-actions-row">
+    <ElButton
+      class="bottom-action-btn save-btn"
+      data-help="保存配置，会自动刷新页面。"
+      @click="conf.confSaving"
+    >
+      <template #icon>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+      </template>
       保存配置
     </ElButton>
-    <ElButton type="warning" data-help="重新加载本地配置" @click="conf.confReload">
+
+    <ElButton
+      class="bottom-action-btn outline-blue-btn"
+      data-help="重新加载本地配置"
+      @click="conf.confReload"
+    >
+      <template #icon>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        </svg>
+      </template>
       重载配置
     </ElButton>
-    <ElButton
-      type="primary"
-      data-help="不同版本的参数可能会调整, 更新之后一键应用, 不会覆盖主要筛选条件"
-      @click="conf.confRecommend"
-    >
-      使用推荐配置
-    </ElButton>
+
     <ElButton
       v-if="conf.config_level.intermediate"
-      type="primary"
-      data-help="互联网就是要分享"
+      class="bottom-action-btn outline-blue-btn"
+      data-help="导出本地配置"
       @click="conf.confExport"
     >
+      <template #icon>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"></path>
+        </svg>
+      </template>
       导出配置
     </ElButton>
+
     <ElButton
       v-if="conf.config_level.intermediate"
-      type="primary"
-      data-help="互联网就是要分享"
+      class="bottom-action-btn outline-blue-btn"
+      data-help="导入配置文件"
       @click="conf.confImport"
     >
+      <template #icon>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M12 15V2M16 11l-4 4-4-4"></path>
+        </svg>
+      </template>
       导入配置
     </ElButton>
+
     <ElButton
       v-if="conf.config_level.advanced"
-      type="danger"
+      class="bottom-action-btn outline-red-btn"
       data-help="清空配置,不会帮你保存,可以重载恢复"
       @click="conf.confDelete"
     >
+      <template #icon>
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path
+            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          ></path>
+        </svg>
+      </template>
       清空配置
     </ElButton>
   </div>
 </template>
 
 <style lang="scss" scoped>
+.config-banner-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #d1fae5;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+
+  .banner-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .banner-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #065f46;
+
+      .banner-title-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #d1fae5;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        color: #10b981;
+      }
+
+      .banner-title {
+        font-size: 15px;
+        font-weight: 700;
+      }
+    }
+
+    .banner-desc {
+      font-size: 13px;
+      color: #047857;
+    }
+
+    .banner-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+
+      .banner-btn {
+        height: 32px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+
+        &.help-btn {
+          background: #ffffff;
+          border: 1px solid #d1fae5;
+          color: #047857;
+          &:hover {
+            background: #f9fbf9;
+          }
+        }
+
+        &.recommend-btn {
+          background: #ffffff;
+          border: 1px solid #10b981;
+          color: #047857;
+          &:hover {
+            background: #ecfdf5;
+          }
+        }
+      }
+    }
+  }
+
+  .banner-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.custom-config-collapse {
+  border: none !important;
+  background: transparent !important;
+
+  :deep(.ehp-collapse-item) {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+
+    .ehp-collapse-item__header {
+      height: 64px;
+      padding: 0 20px;
+      border: none;
+      background: #ffffff;
+
+      &.is-active {
+        border-bottom: 1px solid #f1f5f9;
+      }
+    }
+
+    .ehp-collapse-item__wrap {
+      border: none;
+      background: #ffffff;
+    }
+
+    .ehp-collapse-item__content {
+      padding: 20px;
+    }
+  }
+
+  .collapse-header-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+
+    .header-icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+
+      &.blue-icon {
+        background: #eff6ff;
+        color: #2563eb;
+      }
+      &.purple-icon {
+        background: #faf5ff;
+        color: #9333ea;
+      }
+      &.map-icon {
+        background: #fff1f2;
+        color: #f43f5e;
+      }
+      &.ai-icon {
+        background: #f0fdf4;
+        color: #10b981;
+      }
+      &.timer-icon {
+        background: #f0f9ff;
+        color: #0284c7;
+      }
+    }
+
+    .header-text-wrapper {
+      display: flex;
+      flex-direction: column;
+
+      .header-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+      }
+
+      .header-desc {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 400;
+        margin-top: 3px;
+      }
+    }
+  }
+}
+
+.config-bottom-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.bottom-actions-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+
+  .bottom-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    border-width: 1px;
+
+    &.save-btn {
+      background-color: #2563eb;
+      border-color: #2563eb;
+      color: #ffffff;
+      &:hover {
+        background-color: #1d4ed8;
+        border-color: #1d4ed8;
+      }
+    }
+
+    &.outline-blue-btn {
+      background-color: #ffffff;
+      border-color: #dbeafe;
+      color: #2563eb;
+      &:hover {
+        background-color: #f1f5f9;
+        border-color: #bfdbfe;
+      }
+    }
+
+    &.outline-red-btn {
+      background-color: #ffffff;
+      border-color: #fee2e2;
+      color: #ef4444;
+      &:hover {
+        background-color: #fef2f2;
+        border-color: #fca5a5;
+      }
+    }
+  }
+}
+
 .ehp-space.config-input :deep(.ehp-space__item) {
   width: 48%;
+}
+
+@media (max-width: 720px) {
+  .config-banner-card {
+    align-items: flex-start;
+
+    .banner-right {
+      display: none;
+    }
+  }
+
+  .config-bottom-controls-row,
+  .bottom-actions-row,
+  .config-banner-card .banner-actions {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ehp-space.config-input :deep(.ehp-space__item) {
+    width: 100%;
+  }
 }
 </style>

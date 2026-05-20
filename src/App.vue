@@ -85,7 +85,6 @@ onMounted(async () => {
 
 本项目仅供学习交流，禁止用于商业用途
 使用该脚本有一定风险(如黑号,封号,权重降低等)，本项目不承担任何责任
-<img style="width: 200px; height: 200px;" src="https://qiu-config.oss-cn-beijing.aliyuncs.com/reward.png" style="object-fit: cover;"/>
 Github开源地址: <a href="https://github.com/ocyss/boos-helper" target="_blank">https://github.com/ocyss/boos-helper</a>
 反馈结果会在对应记录中评论回复， 一般3-7天回复
 飞书反馈问卷(匿名): <a href="https://gai06vrtbc0.feishu.cn/share/base/form/shrcnmEq2fxH9hM44hqEnoeaj8g" target="_blank">https://gai06vrtbc0.feishu.cn/share/base/form/shrcnmEq2fxH9hM44hqEnoeaj8g</a>

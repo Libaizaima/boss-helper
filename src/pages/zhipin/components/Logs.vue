@@ -18,7 +18,7 @@ import {
 } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
-import JobCard from '@/components/JobCard.vue'
+import JobCard from '@/components/Jobcard.vue'
 import { useLog } from '@/stores/log'
 
 const tableRef = ref<TableV2Instance>()

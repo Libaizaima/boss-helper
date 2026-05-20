@@ -70,7 +70,14 @@ export interface FormData {
 export type FormInfoData = {
   [key in keyof Omit<
     FormData,
-    'config_level' | 'aiGreeting' | 'aiFiltering' | 'delay' | 'userId' | 'version' | 'amap'
+    | 'config_level'
+    | 'aiGreeting'
+    | 'aiFiltering'
+    | 'aiReply'
+    | 'delay'
+    | 'userId'
+    | 'version'
+    | 'amap'
   >]: {
     label: string
     'data-help'?: string
@@ -79,6 +86,7 @@ export type FormInfoData = {
   config_level: { options: Array<{ value: ConfigLevel; label: string }>; 'data-help'?: string }
   aiGreeting: FormInfoAi
   aiFiltering: FormInfoAi
+  aiReply: FormInfoAi
   delay: ConfInfoDelay
   amap: {
     [key in keyof FormData['amap']]: {
