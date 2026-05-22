@@ -400,6 +400,8 @@ function getSendDiagnostics(): SendChannelDiagnostics {
 interface NativeAckPayload {
   cmid?: string | number
   mid?: string | number
+  clientMid?: string | number
+  tempID?: string | number
   code?: number
   message?: string
 }
@@ -424,12 +426,78 @@ function nativeAckHandler(payload: NativeAckPayload | undefined): void {
   }
 }
 
+function normalizeNativeMessages(payload: any): NativeAckPayload[] {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.messages)) return payload.messages
+  if (payload?.message != null) return [payload.message]
+  return payload != null ? [payload] : []
+}
+
+function getNativeMessageCmid(message: NativeAckPayload | undefined): string | null {
+  const cmid = message?.cmid ?? message?.clientMid ?? message?.tempID
+  return cmid == null ? null : String(cmid)
+}
+
+function nativeDeliveredHandler(payload: any): void {
+  try {
+    for (const message of normalizeNativeMessages(payload)) {
+      const cmid = getNativeMessageCmid(message)
+      if (cmid == null || !pendingMap.has(cmid)) continue
+      const mid = message?.mid != null ? String(message.mid) : undefined
+      resolveOk(cmid, mid, 0, 'native-event')
+    }
+  } catch (e) {
+    logger.warn('[ackRegistry] native delivered handler exception', e)
+  }
+}
+
+function nativeSendErrorHandler(payload: any): void {
+  try {
+    const message = normalizeNativeMessages(payload)[0]
+    const cmid = getNativeMessageCmid(message)
+    if (cmid == null || !pendingMap.has(cmid)) return
+    resolveFail(cmid, 'SERVER_REJECTED', payload?.code, payload?.error ?? payload?.message)
+  } catch (e) {
+    logger.warn('[ackRegistry] native send-error handler exception', e)
+  }
+}
+
 function tryHookNativeEvents(): boolean {
   let hooked = false
 
   try {
     const w = window as unknown as { GeekChatCore?: any }
     const chatCore = w.GeekChatCore?.getInstance?.()
+    if (chatCore && typeof chatCore.on === 'function') {
+      for (const [evt, handler] of [
+        ['messageDelivered', nativeDeliveredHandler],
+        ['sendError', nativeSendErrorHandler],
+      ] as const) {
+        try {
+          chatCore.on(evt, handler)
+          hooked = true
+        } catch {
+          // ignore individual event registration failures
+        }
+      }
+    }
+
+    const sharedWorkerClient =
+      chatCore?.socketConnect?.broadcastManager?.sharedWorkerClient
+    if (sharedWorkerClient && typeof sharedWorkerClient.addListener === 'function') {
+      for (const [evt, handler] of [
+        ['message-delivered', nativeDeliveredHandler],
+        ['send-error', nativeSendErrorHandler],
+      ] as const) {
+        try {
+          sharedWorkerClient.addListener(evt, handler)
+          hooked = true
+        } catch {
+          // ignore individual event registration failures
+        }
+      }
+    }
+
     const client = chatCore?.getClient?.()
     if (client && typeof client.on === 'function') {
       for (const evt of ['messageAck', 'sendAck', 'sendResult'] as const) {

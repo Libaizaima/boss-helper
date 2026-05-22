@@ -1,6 +1,5 @@
 import type { Column } from 'element-plus'
 import { ElButton, ElCheckbox, ElCheckboxGroup, ElIcon, ElPopover, ElTag } from 'element-plus'
-import type { HeaderCellRendererParams } from 'element-plus/es/components/table-v2/src/types.mjs'
 import { computed, reactive, ref } from 'vue'
 
 import { counter } from '@/message'
@@ -59,6 +58,10 @@ interface log {
   data?: logData
   time?: string
   debug?: string
+}
+
+type HeaderCellProps<T> = {
+  column: Column<T>
 }
 
 /** 可序列化的持久化日志结构（去掉不可序列化的字段） */
@@ -245,7 +248,7 @@ const columns: Column<log>[] = [
     cellRenderer: ({ rowData }) => (
       <ElTag type={rowData.state ?? 'primary'}>{rowData.state_name}</ElTag>
     ),
-    headerCellRenderer: (props: HeaderCellRendererParams<log>) => {
+    headerCellRenderer: (props: HeaderCellProps<log>) => {
       return (
         <div class="flex items-center justify-center">
           <span class="mr-2 text-xs">{props.column.title}</span>

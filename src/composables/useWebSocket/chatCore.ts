@@ -7,7 +7,7 @@ import {
 } from './chatBridge'
 import { logger } from '@/utils/logger'
 
-type GeekChatCoreVersion = '1.0.8' | '2.0.1'
+type GeekChatCoreVersion = '1.0.8' | '2.0.3'
 
 interface GeekChatCoreClient {
   on: (event: string, handler: (...args: any[]) => void) => void
@@ -27,8 +27,8 @@ interface GeekChatCoreClient {
 
 const GEEK_CHAT_TOGGLE_SYSTEM = '9E2145704D3D49648DD85D6DDAC1CF0D'
 const GEEK_CHAT_DEFAULT_VERSION: GeekChatCoreVersion = '1.0.8'
-const GEEK_CHAT_VERSION_V2: GeekChatCoreVersion = '2.0.1'
-const GEEK_CHAT_SCRIPT_TS = '20260123'
+const GEEK_CHAT_VERSION_V2: GeekChatCoreVersion = '2.0.3'
+const GEEK_CHAT_SCRIPT_TS = '20260507'
 const GEEK_CHAT_TIMEOUT_MS = 20000
 const GEEK_CHAT_BRIDGE_FLAG = '__BOSS_HELPER_GEEK_CHAT_BRIDGE_READY__'
 
@@ -256,7 +256,7 @@ export async function sendChatByGeekChatCore(args: BossHelperChatMessageArgs) {
   }
 
   const client = await ensureGeekChatClient()
-  const clientMid = Date.now()
+  const clientMid = Date.now() + 68256432452609
   const waitForResult = waitForChatSendResult(client, clientMid)
 
   client.sendMessage(
