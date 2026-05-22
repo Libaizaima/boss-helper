@@ -101,7 +101,7 @@ export const useDeliver = defineStore('zhipin/deliver', () => {
             (e.name as string) ?? '没有消息',
           )
           log.add(data, e as logErr, ctx)
-          logger.warn('投递过滤', ctx)
+          logger.debug('投递过滤', ctx)
           ctx.state = '过滤'
           ctx.err = e.message ?? ''
 

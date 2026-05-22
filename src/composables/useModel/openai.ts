@@ -10,7 +10,7 @@ import { llm } from './type'
  * 然后请求并返回模型 id 列表。
  */
 export async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
-  const base = baseUrl.replace(/\/+$/, '')
+  const base = normalizeOpenAIBaseUrl(baseUrl)
   const modelsUrl = `${base}/models`
 
   const res = await request.get<unknown, 'json'>({
@@ -27,6 +27,14 @@ export async function fetchModels(baseUrl: string, apiKey: string): Promise<stri
     throw new Error('模型列表格式异常')
   }
   return res.data.map((m) => m.id).sort()
+}
+
+function normalizeOpenAIBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '').replace(/\/chat\/completions$/, '')
+}
+
+function shouldOmitSamplingParams(model: string): boolean {
+  return /^(gpt-5|o[134])/.test(model)
 }
 
 export type openaiLLMConf = llmConf<
@@ -71,8 +79,27 @@ const info: llmInfo<openaiLLMConf> = {
   },
   model: {
     config: {
-      placeholder: 'gpt-4o-mini',
-      options: ['gpt-4o-mini', 'gpt-4o', 'gpt-4', 'deepseek-chat'].map((item) => ({
+      placeholder: 'deepseek-v4-flash / gpt-5.5 / custom',
+      options: [
+        'deepseek-v4-flash',
+        'deepseek-v4-pro',
+        'deepseek-chat',
+        'deepseek-reasoner',
+        'gpt-5.5',
+        'gpt-5.5-pro',
+        'gpt-5.4',
+        'gpt-5.4-mini',
+        'gpt-5.4-nano',
+        'chat-latest',
+        'gpt-5',
+        'gpt-5-mini',
+        'gpt-5-nano',
+        'gpt-4.1',
+        'gpt-4.1-mini',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'gpt-4',
+      ].map((item) => ({
         label: item,
         value: item,
       })),
@@ -80,7 +107,7 @@ const info: llmInfo<openaiLLMConf> = {
       filterable: true,
       defaultFirstOption: true,
     },
-    value: 'deepseek-chat',
+    value: 'deepseek-v4-flash',
     type: 'select',
     required: true,
   },
@@ -199,20 +226,23 @@ class Gpt extends llm<openaiLLMConf> {
     onStream?: OnStream
     json?: boolean
   }): Promise<any> {
-    const base = this.conf.url.replace(/\/+$/, '')
+    const base = normalizeOpenAIBaseUrl(this.conf.url)
     const chatUrl = base.endsWith('/chat/completions') ? base : `${base}/chat/completions`
+    const data: Record<string, unknown> = {
+      messages: prompt,
+      model: this.conf.model,
+      stream: this.conf.advanced.stream,
+      response_format: this.conf.advanced.json && json ? { type: 'json_object' } : undefined,
+    }
+    if (!shouldOmitSamplingParams(this.conf.model)) {
+      data.temperature = this.conf.advanced.temperature
+      data.top_p = this.conf.advanced.top_p
+      data.presence_penalty = this.conf.advanced.presence_penalty
+      data.frequency_penalty = this.conf.advanced.frequency_penalty
+    }
     const res = await request.post({
       url: chatUrl,
-      data: JSON.stringify({
-        messages: prompt,
-        model: this.conf.model,
-        stream: this.conf.advanced.stream,
-        temperature: this.conf.advanced.temperature,
-        top_p: this.conf.advanced.top_p,
-        presence_penalty: this.conf.advanced.presence_penalty,
-        frequency_penalty: this.conf.advanced.frequency_penalty,
-        response_format: this.conf.advanced.json && json ? { type: 'json_object' } : undefined,
-      }),
+      data: JSON.stringify(data),
       headers: {
         Authorization: `Bearer ${this.conf.api_key}`,
         'Content-Type': 'application/json',

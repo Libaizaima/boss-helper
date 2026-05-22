@@ -78,7 +78,7 @@ export async function sendPublishReq(
       headers: { Zp_token: token },
     })
 
-    res.data.code !== 0 && logger.error(`投递失败`, res)
+    res.data.code !== 0 && logger.debug(`投递失败`, res.data)
 
     if (res.data.code === 1) {
       const content = String(

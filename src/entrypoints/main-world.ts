@@ -14,7 +14,7 @@ async function main(router: any) {
   let module = {
     run() {
       logger.info('BossHelper加载成功')
-      logger.warn('当前页面无对应hook脚本', router.path)
+      logger.debug('当前页面无对应hook脚本', router.path)
     },
   }
   switch (router.path) {
@@ -44,7 +44,16 @@ async function start() {
   //     GM_getValue("theme-dark", false)
   //   );
 
-  const v = await getRootVue()
+  let v: any
+  try {
+    v = await getRootVue()
+  } catch (e) {
+    logger.debug('skip non-Vue page', {
+      path: location.pathname,
+      message: e instanceof Error ? e.message : String(e),
+    })
+    return
+  }
   v.$router.afterHooks.push(main)
   void main(v.$route)
   let axiosLoad: () => void
