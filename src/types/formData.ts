@@ -45,6 +45,7 @@ export interface FormData {
   aiGreeting: FormDataAi
   aiFiltering: FormDataAi & { score: number }
   aiReply: FormDataAi
+  autoResume: FormAutoResume
   amap: {
     key: string
     origins: string
@@ -74,6 +75,7 @@ export type FormInfoData = {
     | 'aiGreeting'
     | 'aiFiltering'
     | 'aiReply'
+    | 'autoResume'
     | 'delay'
     | 'userId'
     | 'version'
@@ -145,6 +147,20 @@ export interface FormDataAi {
   vip?: boolean
   prompt: string | prompt
   enable: boolean
+}
+
+export interface FormAutoResume {
+  enable: boolean
+  replyAfterGreeting: boolean
+  allowIncomingBoss: boolean
+  incomingKeywordOnly: boolean
+  keywords: string[]
+  delayMinSec: number
+  delayMaxSec: number
+  requirePageVisible: boolean
+  requireUserIdleSec: number
+  preferLearnedApi: boolean
+  fallbackClick: boolean
 }
 
 interface ConfDelay {

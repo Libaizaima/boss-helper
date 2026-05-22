@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { cachePipelineResult, createHandle, sendPublishReq } from '@/composables/useApplying'
+import { recordAutoResumeAppliedContact } from '@/composables/useAutoResume'
 import { useCommon } from '@/composables/useCommon'
 import { useStatistics } from '@/composables/useStatistics'
 import { useConf } from '@/stores/conf'
@@ -60,6 +61,9 @@ export const useDeliver = defineStore('zhipin/deliver', () => {
           for (const h of chandle.after) {
             await h({ data }, ctx)
           }
+          void recordAutoResumeAppliedContact(data, ctx.bossData).catch((e) => {
+            logger.debug('[AutoResume] record contact failed', e)
+          })
           log.add(data, null, ctx, ctx.message)
           statistics.todayData.success++
           data.status.setStatus('success', '投递成功')

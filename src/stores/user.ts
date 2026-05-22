@@ -299,7 +299,10 @@ ${data.volunteerExpList
       return resume.value
     }
 
-    const token = window?.Cookie.get('bst')
+    const token = window.Cookie?.get?.('bst')
+    if (!token) {
+      throw new Error('BOSS cookie is unavailable')
+    }
     const res = await fetch(
       `https://www.zhipin.com/wapi/zpgeek/resume/geek/preview/data.json?_=${Date.now()}`,
       {

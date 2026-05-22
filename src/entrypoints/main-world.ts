@@ -1,14 +1,39 @@
 import axios from 'axios'
-import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import { defineUnlistedScript } from '#imports'
 import App from '@/App.vue'
 import { initAiReply } from '@/composables/useAiReply'
+import { initAutoResume } from '@/composables/useAutoResume'
 import { getRootVue } from '@/composables/useVue'
 import { initGeekChatBridge } from '@/composables/useWebSocket/chatCore'
+import { ensureActivePinia } from '@/stores/pinia'
 import { loader } from '@/utils'
 import { logger } from '@/utils/logger'
+
+let staleDomCleaned = false
+let floatingAppMounted = false
+
+function cleanupStaleDom() {
+  if (staleDomCleaned) return
+  staleDomCleaned = true
+  document.querySelector('#boss-helper')?.remove()
+  document.querySelector('#boss-helper-job')?.remove()
+  document.querySelector('#boss-helper-job-warp')?.remove()
+  document.querySelector('#help-conf-box')?.remove()
+}
+
+function mountFloatingApp() {
+  if (floatingAppMounted && document.querySelector('#boss-helper')) return
+  document.querySelector('#boss-helper')?.remove()
+  const app = createApp(App)
+  app.use(ensureActivePinia())
+  const appEl = document.createElement('div')
+  appEl.id = 'boss-helper'
+  document.body.append(appEl)
+  app.mount(appEl)
+  floatingAppMounted = true
+}
 
 async function main(router: any) {
   let module = {
@@ -25,18 +50,11 @@ async function main(router: any) {
       break
   }
   module.run()
-  const helper = document.querySelector('#boss-helper')
-  if (!helper) {
-    const app = createApp(App)
-    app.use(createPinia())
-    const appEl = document.createElement('div')
-    appEl.id = 'boss-helper'
-    document.body.append(appEl)
-    app.mount(appEl)
-  }
+  mountFloatingApp()
 }
 
 async function start() {
+  cleanupStaleDom()
   initGeekChatBridge()
 
   //   document.documentElement.classList.toggle(
@@ -82,8 +100,11 @@ async function start() {
 }
 
 export default defineUnlistedScript(() => {
+  ensureActivePinia()
+  cleanupStaleDom()
   start().catch((e) => {
     logger.error(e)
   })
   initAiReply()
+  initAutoResume()
 })

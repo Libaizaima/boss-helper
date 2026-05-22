@@ -19,12 +19,16 @@ import {
   ElOption,
 } from 'element-plus'
 
-import { ref } from '#imports'
+import { computed, ref } from '#imports'
 import Alert from '@/components/Alert'
 import formItem from '@/components/form/FormItem.vue'
 import formSelect from '@/components/form/FormSelect.vue'
 import SalaryRangeComponent from '@/components/form/SalaryRange.vue'
 import { getCacheManager } from '@/composables/useApplying'
+import {
+  clearAutoResumeApiTemplate,
+  startAutoResumeApiLearning,
+} from '@/composables/useAutoResume'
 import { useCommon } from '@/composables/useCommon'
 import { formInfoData, useConf } from '@/stores/conf'
 import { ConfigLevel } from '@/types/formData'
@@ -38,6 +42,35 @@ const conf = useConf()
 const common = useCommon()
 const { deliverLock } = common
 const amapGeocodeLoading = ref(false)
+const autoResumeLearning = ref(false)
+const autoResumeKeywordsText = computed({
+  get: () => conf.formData.autoResume.keywords.join('，'),
+  set: (value: string) => {
+    conf.formData.autoResume.keywords = value
+      .split(/[,，\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  },
+})
+
+async function learnAutoResumeApiHandler() {
+  autoResumeLearning.value = true
+  ElMessage.info('请在 30 秒内手动点击一次 BOSS 聊天页的「发简历」按钮')
+  try {
+    await startAutoResumeApiLearning()
+    ElMessage.success('发简历接口学习成功，请保存配置后继续使用')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '发简历接口学习失败')
+  } finally {
+    autoResumeLearning.value = false
+  }
+}
+
+async function clearAutoResumeApiHandler() {
+  await clearAutoResumeApiTemplate()
+  ElMessage.success('已清除发简历接口模板')
+}
+
 async function amapGeocodeHandler() {
   amapGeocodeLoading.value = true
   try {
@@ -636,6 +669,92 @@ function syncSalaryRange() {
             :max="15000"
             :step="500"
           />
+        </ElFormItem>
+      </ElCollapseItem>
+      <ElCollapseItem v-if="conf.config_level.advanced" name="6">
+        <template #title>
+          <div class="collapse-header-row">
+            <div class="header-icon-wrapper timer-icon">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="8" y1="13" x2="16" y2="13"></line>
+                <line x1="8" y1="17" x2="13" y2="17"></line>
+              </svg>
+            </div>
+            <div class="header-text-wrapper">
+              <div class="header-title">自动发简历</div>
+              <div class="header-desc">Boss 回复或主动联系后，按规则自动发送简历</div>
+            </div>
+          </div>
+        </template>
+        <Alert
+          id="auto-resume-config-alert"
+          style="margin-bottom: 10px"
+          show-icon
+          type="warning"
+          title="默认关闭。开启后只在检测到未发过简历、页面允许发送且满足频率限制时自动操作。"
+        />
+        <ElSpace wrap class="config-input" style="width: 100%">
+          <ElCheckbox v-model="conf.formData.autoResume.enable" border>
+            启用自动发简历
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.replyAfterGreeting" border>
+            Boss 回复打招呼后发送
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.allowIncomingBoss" border>
+            Boss 主动找我也处理
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.incomingKeywordOnly" border>
+            主动消息必须命中关键词
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.requirePageVisible" border>
+            仅页面在前台时发送
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.preferLearnedApi" border>
+            优先使用已学习接口
+          </ElCheckbox>
+          <ElCheckbox v-model="conf.formData.autoResume.fallbackClick" border>
+            接口失败后点击按钮
+          </ElCheckbox>
+        </ElSpace>
+        <br />
+        <ElFormItem label="关键词">
+          <ElInput
+            v-model="autoResumeKeywordsText"
+            type="textarea"
+            style="width: 420px"
+            placeholder="简历，发一份，方便发，投递"
+          />
+        </ElFormItem>
+        <ElFormItem label="发送延迟">
+          <ElInputNumber v-model="conf.formData.autoResume.delayMinSec" :min="0" :max="600" />
+          <span style="margin: 0 8px">-</span>
+          <ElInputNumber v-model="conf.formData.autoResume.delayMaxSec" :min="0" :max="600" />
+          <span style="margin-left: 8px">秒</span>
+        </ElFormItem>
+        <ElFormItem label="用户空闲">
+          <ElInputNumber
+            v-model="conf.formData.autoResume.requireUserIdleSec"
+            :min="0"
+            :max="600"
+          />
+          <span style="margin-left: 8px">秒内无操作</span>
+        </ElFormItem>
+        <ElFormItem label="接口学习">
+          <ElButton type="primary" :loading="autoResumeLearning" @click="learnAutoResumeApiHandler">
+            学习发简历接口
+          </ElButton>
+          <ElButton @click="clearAutoResumeApiHandler"> 清除接口模板 </ElButton>
         </ElFormItem>
       </ElCollapseItem>
     </ElCollapse>

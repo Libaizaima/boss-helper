@@ -31,6 +31,9 @@ export interface TechwolfMessageBody {
   headTitle?: string // 11
   text?: string // 3
   image?: TechwolfImage // 5
+  resume?: unknown // 12
+  resumeShare?: unknown // 19
+  resumeAttach?: unknown
 }
 
 export interface TechwolfMessage {
@@ -94,7 +97,9 @@ const root = new Root()
       .add(new Field('templateId', 2, 'int32', 'optional'))
       .add(new Field('headTitle', 11, 'string'))
       .add(new Field('text', 3, 'string'))
-      .add(new Field('image', 5, 'TechwolfImage', 'optional')),
+      .add(new Field('image', 5, 'TechwolfImage', 'optional'))
+      .add(new Field('resume', 12, 'bytes', 'optional'))
+      .add(new Field('resumeShare', 19, 'bytes', 'optional')),
   )
   .add(
     new Type('TechwolfMessage')

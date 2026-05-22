@@ -76,6 +76,7 @@ export async function sendPublishReq(
       params,
       method: 'POST',
       headers: { Zp_token: token },
+      timeout: 8000,
     })
 
     res.data.code !== 0 && logger.debug(`投递失败`, res.data)
@@ -95,6 +96,7 @@ export async function sendPublishReq(
             method: 'POST',
             headers: { Zp_token: token },
             data: params,
+            timeout: 8000,
           })
           return sendPublishReq(data, undefined, retries, { cid: 1 })
         } catch (e) {
@@ -149,6 +151,7 @@ export async function requestBossData(
       data,
       method: 'POST',
       headers: { Zp_token: token },
+      timeout: 8000,
     })
     if (res.data.code !== 0) {
       if (res.data.message === '非好友关系') {

@@ -216,7 +216,7 @@ function openStore() {
       /> -->
       </template>
     </div>
-    <ElTooltip :visible="helpVisible && !isOutside" :virtual-ref="triggerRef">
+    <ElTooltip virtual-triggering :visible="helpVisible && !isOutside" :virtual-ref="triggerRef">
       <template #content>
         <div :style="`width: auto;max-width:${boxStyles.width};font-size:17px;`">
           {{ helpContent }}

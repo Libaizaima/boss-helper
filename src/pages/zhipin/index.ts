@@ -1,7 +1,7 @@
-import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import elmGetter from '@/utils/elmGetter'
+import { ensureActivePinia } from '@/stores/pinia'
 import { logger } from '@/utils/logger'
 
 import Ui from './components/Ui.vue'
@@ -16,7 +16,7 @@ async function mountVue() {
     return
   }
   const app = createApp(Ui)
-  app.use(createPinia())
+  app.use(ensureActivePinia())
 
   const jobEl = document.createElement('div')
   jobEl.id = 'boss-helper-job'
